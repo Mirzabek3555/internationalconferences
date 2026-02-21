@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" opacity="0.06">
+  <!-- Canada: Maple Leaf (national symbol) + Parliament building silhouette -->
+  
+  <!-- Large central maple leaf -->
+  <g transform="translate(100, 60)" fill="#1a3a5f">
+    <path d="M100,0 
+             L105,30 L130,20 L120,45 L150,50 L130,65 L145,85 L115,80 
+             L110,120 L100,100 L90,120 L85,80 L55,85 L70,65 L50,50 
+             L80,45 L70,20 L95,30 Z"/>
+    <!-- Stem -->
+    <rect x="95" y="120" width="10" height="40"/>
+  </g>
+  
+  <!-- Parliament building silhouette (Peace Tower) -->
+  <g transform="translate(100, 220)" fill="#1a3a5f">
+    <!-- Main building base -->
+    <rect x="0" y="80" width="200" height="60"/>
+    
+    <!-- Central Peace Tower -->
+    <rect x="85" y="20" width="30" height="60"/>
+    <polygon points="85,20 100,0 115,20"/>
+    
+    <!-- Side towers -->
+    <rect x="20" y="50" width="25" height="90"/>
+    <polygon points="20,50 32,35 45,50"/>
+    <rect x="155" y="50" width="25" height="90"/>
+    <polygon points="155,50 168,35 180,50"/>
+    
+    <!-- Windows (simplified) -->
+    <g fill="#fff">
+      <rect x="95" y="40" width="10" height="15"/>
+      <rect x="28" y="70" width="8" height="12"/>
+      <rect x="163" y="70" width="8" height="12"/>
+    </g>
+  </g>
+  
+  <!-- Small maple leaves pattern -->
+  <defs>
+    <pattern id="maple-pattern" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M20,5 L21,10 L26,8 L24,13 L29,14 L26,17 L28,21 L23,20 L22,25 L20,22 L18,25 L17,20 L12,21 L14,17 L11,14 L16,13 L14,8 L19,10 Z" 
+            fill="#1a3a5f" opacity="0.3"/>
+    </pattern>
+  </defs>
+  <rect x="0" y="0" width="60" height="400" fill="url(#maple-pattern)"/>
+  <rect x="340" y="0" width="60" height="400" fill="url(#maple-pattern)"/>
+</svg>

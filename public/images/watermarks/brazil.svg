@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" opacity="0.06">
+  <!-- Brazil: Southern Cross constellation + National motto sphere outline -->
+  
+  <!-- Celestial sphere (from flag) -->
+  <g transform="translate(100, 80)">
+    <circle cx="100" cy="100" r="90" fill="none" stroke="#1a3a5f" stroke-width="3"/>
+    
+    <!-- Equator band -->
+    <ellipse cx="100" cy="100" rx="90" ry="20" fill="none" stroke="#1a3a5f" stroke-width="2"/>
+    
+    <!-- Stars - Southern Cross (Cruzeiro do Sul) -->
+    <g fill="#1a3a5f">
+      <polygon points="100,40 103,50 113,50 105,56 108,66 100,60 92,66 95,56 87,50 97,50"/>
+      <polygon points="70,90 72,96 78,96 73,100 75,106 70,102 65,106 67,100 62,96 68,96" transform="scale(0.8) translate(25, 30)"/>
+      <polygon points="130,90 132,96 138,96 133,100 135,106 130,102 125,106 127,100 122,96 128,96" transform="scale(0.8) translate(-10, 30)"/>
+      <polygon points="100,130 102,136 108,136 103,140 105,146 100,142 95,146 97,140 92,136 98,136" transform="scale(0.7) translate(43, -10)"/>
+      <polygon points="100,80 101,84 105,84 102,86 103,90 100,88 97,90 98,86 95,84 99,84"/>
+    </g>
+  </g>
+  
+  <!-- Coffee branch (important symbol) -->
+  <g transform="translate(50, 300)" fill="none" stroke="#1a3a5f" stroke-width="2">
+    <path d="M0,50 Q50,30 100,50 Q150,30 200,50"/>
+    <ellipse cx="30" cy="45" rx="8" ry="5"/>
+    <ellipse cx="70" cy="35" rx="8" ry="5"/>
+    <ellipse cx="130" cy="35" rx="8" ry="5"/>
+    <ellipse cx="170" cy="45" rx="8" ry="5"/>
+  </g>
+  
+  <!-- Additional stars scattered -->
+  <g fill="#1a3a5f" opacity="0.4">
+    <polygon points="50,50 51,54 55,54 52,56 53,60 50,58 47,60 48,56 45,54 49,54"/>
+    <polygon points="350,80 351,84 355,84 352,86 353,90 350,88 347,90 348,86 345,84 349,84"/>
+    <polygon points="30,200 31,204 35,204 32,206 33,210 30,208 27,210 28,206 25,204 29,204"/>
+    <polygon points="370,250 371,254 375,254 372,256 373,260 370,258 367,260 368,256 365,254 369,254"/>
+  </g>
+</svg>

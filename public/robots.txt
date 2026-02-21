@@ -1,0 +1,30 @@
+# robots.txt for artiqle.uz
+# International Scientific Online Conference Platform
+
+# Allow all crawlers
+User-agent: *
+Allow: /
+
+# Allow Google Scholar bot specifically
+User-agent: Googlebot-Scholar
+Allow: /
+
+# Allow PDF access for indexing
+Allow: /storage/articles/*.pdf
+Allow: /storage/proceedings/*.pdf
+Allow: /storage/collections/*.pdf
+
+# Disallow admin and user private areas
+Disallow: /admin/
+Disallow: /user/
+Disallow: /login
+Disallow: /register
+Disallow: /logout
+
+# Disallow temporary/system files
+Disallow: /storage/app/temp/
+Disallow: /*.json$
+Disallow: /api/
+
+# Sitemap location
+Sitemap: https://artiqle.uz/sitemap.xml

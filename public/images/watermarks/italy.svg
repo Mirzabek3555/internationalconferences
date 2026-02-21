@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" opacity="0.06">
+  <!-- Italy: Emblem of Italy (Stella d'Italia) + Colosseum silhouette -->
+  
+  <!-- Stella d'Italia (5-pointed star with cogwheel) -->
+  <g transform="translate(140, 80)" fill="none" stroke="#1a3a5f" stroke-width="2">
+    <!-- Cogwheel outer -->
+    <circle cx="60" cy="60" r="55"/>
+    <!-- Cogwheel teeth simplified -->
+    <g stroke-width="4">
+      <line x1="60" y1="0" x2="60" y2="15"/>
+      <line x1="60" y1="105" x2="60" y2="120"/>
+      <line x1="0" y1="60" x2="15" y2="60"/>
+      <line x1="105" y1="60" x2="120" y2="60"/>
+      <line x1="18" y1="18" x2="28" y2="28"/>
+      <line x1="92" y1="92" x2="102" y2="102"/>
+      <line x1="18" y1="102" x2="28" y2="92"/>
+      <line x1="92" y1="28" x2="102" y2="18"/>
+    </g>
+    
+    <!-- 5-pointed star inside -->
+    <polygon points="60,20 67,45 95,45 73,60 80,85 60,70 40,85 47,60 25,45 53,45" 
+             fill="#1a3a5f"/>
+  </g>
+  
+  <!-- Colosseum silhouette -->
+  <g transform="translate(50, 240)" fill="#1a3a5f">
+    <!-- Main structure -->
+    <path d="M0,100 L10,60 L30,60 L30,40 L50,40 L50,60 L70,60 L70,40 L90,40 
+             L90,60 L110,60 L110,40 L130,40 L130,60 L150,60 L150,40 L170,40 
+             L170,60 L190,60 L190,40 L210,40 L210,60 L230,60 L230,40 L250,40 
+             L250,60 L270,60 L270,40 L290,40 L290,60 L300,100 Z"/>
+    <!-- Arches -->
+    <g fill="#fff">
+      <ellipse cx="50" cy="80" rx="15" ry="20"/>
+      <ellipse cx="110" cy="80" rx="15" ry="20"/>
+      <ellipse cx="170" cy="80" rx="15" ry="20"/>
+      <ellipse cx="230" cy="80" rx="15" ry="20"/>
+    </g>
+  </g>
+  
+  <!-- Olive and oak branches (simplified) -->
+  <g fill="none" stroke="#1a3a5f" stroke-width="2" opacity="0.5">
+    <path d="M100,200 Q80,180 90,160"/>
+    <path d="M300,200 Q320,180 310,160"/>
+  </g>
+</svg>

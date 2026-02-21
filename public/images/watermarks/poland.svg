@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" opacity="0.06">
+  <!-- Poland: White Eagle (Orzeł Biały) - national emblem -->
+  
+  <g transform="translate(100, 60)" fill="#1a3a5f">
+    <!-- Eagle body -->
+    <ellipse cx="100" cy="140" rx="60" ry="85"/>
+    
+    <!-- Eagle head with crown -->
+    <circle cx="100" cy="50" r="30"/>
+    
+    <!-- Crown -->
+    <path d="M70,30 L75,10 L85,25 L100,5 L115,25 L125,10 L130,30 Z"/>
+    <rect x="72" y="30" width="56" height="10" rx="2"/>
+    
+    <!-- Beak -->
+    <path d="M100,60 L85,80 L100,75 L115,80 Z"/>
+    
+    <!-- Wings spread (heraldic style) -->
+    <path d="M40,100 Q-10,70 0,130 Q10,170 40,160 Q30,140 35,120 Z"/>
+    <path d="M160,100 Q210,70 200,130 Q190,170 160,160 Q170,140 165,120 Z"/>
+    
+    <!-- Wing feather details -->
+    <g fill="none" stroke="#fff" stroke-width="2">
+      <path d="M30,110 Q10,100 5,120"/>
+      <path d="M25,130 Q5,125 0,145"/>
+      <path d="M170,110 Q190,100 195,120"/>
+      <path d="M175,130 Q195,125 200,145"/>
+    </g>
+    
+    <!-- Tail feathers -->
+    <path d="M70,220 L60,280 L80,260 L100,280 L120,260 L140,280 L130,220 Z"/>
+    
+    <!-- Talons -->
+    <g stroke="#1a3a5f" stroke-width="3" fill="none">
+      <path d="M60,220 L40,250 M60,220 L50,255 M60,220 L60,250"/>
+      <path d="M140,220 L160,250 M140,220 L150,255 M140,220 L140,250"/>
+    </g>
+  </g>
+  
+  <!-- Decorative border hints -->
+  <rect x="10" y="10" width="380" height="380" fill="none" stroke="#1a3a5f" stroke-width="1" rx="5" opacity="0.3"/>
+</svg>

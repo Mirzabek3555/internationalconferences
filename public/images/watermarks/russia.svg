@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" opacity="0.06">
+  <!-- Russia: Double-headed eagle (State emblem) simplified -->
+  <g transform="translate(80, 60)" fill="#1a3a5f">
+    <!-- Double-headed eagle body -->
+    <ellipse cx="120" cy="140" rx="60" ry="80"/>
+    
+    <!-- Left head -->
+    <circle cx="60" cy="60" r="30"/>
+    <path d="M45,40 L30,20 L50,35 M35,50 L15,45 L40,55"/>
+    
+    <!-- Right head -->
+    <circle cx="180" cy="60" r="30"/>
+    <path d="M195,40 L210,20 L190,35 M205,50 L225,45 L200,55"/>
+    
+    <!-- Crown between heads -->
+    <path d="M100,35 L120,10 L140,35 L130,35 L120,20 L110,35 Z"/>
+    
+    <!-- Wings spread -->
+    <path d="M60,100 Q0,80 10,140 Q20,180 60,160 Z"/>
+    <path d="M180,100 Q240,80 230,140 Q220,180 180,160 Z"/>
+    
+    <!-- Tail feathers -->
+    <path d="M90,220 L80,280 L120,250 L160,280 L150,220 Z"/>
+    
+    <!-- Shield in center -->
+    <rect x="95" y="110" width="50" height="60" rx="5" fill="none" stroke="#1a3a5f" stroke-width="3"/>
+  </g>
+</svg>

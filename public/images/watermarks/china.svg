@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" opacity="0.06">
+  <!-- China: Great Wall silhouette + Traditional cloud pattern -->
+  <defs>
+    <pattern id="chinese-clouds" x="0" y="0" width="60" height="40" patternUnits="userSpaceOnUse">
+      <!-- Stylized Chinese cloud -->
+      <path d="M10,30 Q15,20 25,25 Q30,15 40,20 Q50,15 50,25 Q55,30 50,35 L10,35 Q5,30 10,30" 
+            fill="#1a3a5f" opacity="0.3"/>
+    </pattern>
+  </defs>
+  
+  <!-- Great Wall silhouette -->
+  <g transform="translate(20, 150)" fill="#1a3a5f">
+    <path d="M0,100 L20,80 L20,60 L30,60 L30,80 L60,60 L60,40 L70,40 L70,60 
+             L100,50 L100,30 L110,30 L110,50 L140,40 L140,20 L150,20 L150,40
+             L180,35 L180,15 L190,15 L190,35 L220,30 L220,10 L230,10 L230,30
+             L260,35 L260,15 L270,15 L270,35 L300,40 L300,20 L310,20 L310,40
+             L340,60 L340,40 L350,40 L350,60 L360,100 Z"/>
+  </g>
+  
+  <!-- Cloud pattern background -->
+  <rect x="0" y="0" width="400" height="120" fill="url(#chinese-clouds)"/>
+  
+  <!-- Traditional frame corners -->
+  <g fill="none" stroke="#1a3a5f" stroke-width="2" opacity="0.5">
+    <path d="M20,20 L20,60 M20,20 L60,20"/>
+    <path d="M380,20 L380,60 M380,20 L340,20"/>
+    <path d="M20,380 L20,340 M20,380 L60,380"/>
+    <path d="M380,380 L380,340 M380,380 L340,380"/>
+  </g>
+</svg>

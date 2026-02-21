@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" opacity="0.06">
+  <!-- India: Ashoka Chakra + Lion Capital + Lotus pattern -->
+  
+  <!-- Ashoka Chakra (24-spoke wheel) -->
+  <g transform="translate(140, 80)" fill="none" stroke="#1a3a5f" stroke-width="2">
+    <circle cx="60" cy="60" r="55"/>
+    <circle cx="60" cy="60" r="45"/>
+    <circle cx="60" cy="60" r="10" fill="#1a3a5f"/>
+    <!-- 24 spokes (showing 12, mirrored) -->
+    <g stroke-width="2">
+      <line x1="60" y1="15" x2="60" y2="50"/>
+      <line x1="60" y1="70" x2="60" y2="105"/>
+      <line x1="15" y1="60" x2="50" y2="60"/>
+      <line x1="70" y1="60" x2="105" y2="60"/>
+      <line x1="28" y1="28" x2="50" y2="50"/>
+      <line x1="70" y1="70" x2="92" y2="92"/>
+      <line x1="28" y1="92" x2="50" y2="70"/>
+      <line x1="70" y1="50" x2="92" y2="28"/>
+      <!-- Additional spokes -->
+      <line x1="40" y1="17" x2="52" y2="52"/>
+      <line x1="80" y1="17" x2="68" y2="52"/>
+      <line x1="40" y1="103" x2="52" y2="68"/>
+      <line x1="80" y1="103" x2="68" y2="68"/>
+    </g>
+  </g>
+  
+  <!-- Lion Capital of Ashoka (simplified - 3 visible lions) -->
+  <g transform="translate(130, 200)" fill="#1a3a5f">
+    <!-- Base -->
+    <rect x="0" y="80" width="140" height="20" rx="3"/>
+    <rect x="10" y="60" width="120" height="25" rx="2"/>
+    
+    <!-- Lions (simplified silhouettes) -->
+    <ellipse cx="70" cy="40" rx="35" ry="25"/>
+    <circle cx="70" cy="15" r="15"/>
+    <!-- Side lion hints -->
+    <ellipse cx="30" cy="50" rx="20" ry="15" opacity="0.6"/>
+    <ellipse cx="110" cy="50" rx="20" ry="15" opacity="0.6"/>
+  </g>
+  
+  <!-- Lotus pattern (national flower) -->
+  <defs>
+    <pattern id="lotus" x="0" y="0" width="50" height="30" patternUnits="userSpaceOnUse">
+      <path d="M25,25 Q20,15 25,5 Q30,15 25,25 M25,25 Q15,20 10,25 Q15,28 25,25 M25,25 Q35,20 40,25 Q35,28 25,25" 
+            fill="none" stroke="#1a3a5f" stroke-width="1" opacity="0.4"/>
+    </pattern>
+  </defs>
+  <rect x="0" y="360" width="400" height="40" fill="url(#lotus)"/>
+</svg>

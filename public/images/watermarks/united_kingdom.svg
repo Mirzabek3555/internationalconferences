@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" opacity="0.06">
+  <!-- United Kingdom: Royal Coat of Arms elements + Crown -->
+  <g transform="translate(100, 60)" fill="#1a3a5f">
+    <!-- Crown -->
+    <path d="M50,30 L60,0 L80,25 L100,0 L120,25 L140,0 L150,30 L145,40 L55,40 Z"/>
+    <rect x="55" y="40" width="90" height="15" rx="3"/>
+    
+    <!-- Shield -->
+    <path d="M60,70 L60,160 Q60,200 100,210 Q140,200 140,160 L140,70 Z" 
+          fill="none" stroke="#1a3a5f" stroke-width="4"/>
+    
+    <!-- Lion silhouette (rampant) -->
+    <g transform="translate(75, 90)">
+      <path d="M25,0 Q30,-5 35,0 L40,10 L35,20 L45,35 L40,50 L50,60 L40,70 
+               L30,60 L20,70 L10,60 L0,70 L-5,55 L5,45 L0,30 L10,15 L15,5 Z"/>
+    </g>
+  </g>
+  
+  <!-- Tudor Rose pattern (simplified) -->
+  <defs>
+    <pattern id="tudor-rose" x="0" y="0" width="60" height="60" patternUnits="userSpaceOnUse">
+      <circle cx="30" cy="30" r="10" fill="none" stroke="#1a3a5f" stroke-width="1" opacity="0.4"/>
+      <circle cx="30" cy="30" r="5" fill="#1a3a5f" opacity="0.3"/>
+      <!-- Petals -->
+      <ellipse cx="30" cy="18" rx="4" ry="6" fill="#1a3a5f" opacity="0.3"/>
+      <ellipse cx="42" cy="30" rx="6" ry="4" fill="#1a3a5f" opacity="0.3"/>
+      <ellipse cx="30" cy="42" rx="4" ry="6" fill="#1a3a5f" opacity="0.3"/>
+      <ellipse cx="18" cy="30" rx="6" ry="4" fill="#1a3a5f" opacity="0.3"/>
+    </pattern>
+  </defs>
+  <rect x="0" y="280" width="400" height="100" fill="url(#tudor-rose)"/>
+</svg>

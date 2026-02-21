@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" opacity="0.06">
+  <!-- United States: Great Seal Eagle + Stars -->
+  <defs>
+    <pattern id="us-stars" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
+      <!-- 5-pointed star -->
+      <polygon points="20,5 23,15 33,15 25,22 28,32 20,26 12,32 15,22 7,15 17,15" 
+               fill="#1a3a5f" opacity="0.3"/>
+    </pattern>
+  </defs>
+  
+  <!-- Stars pattern (top) -->
+  <rect x="0" y="0" width="400" height="80" fill="url(#us-stars)"/>
+  
+  <!-- Bald Eagle silhouette (Great Seal style) -->
+  <g transform="translate(100, 100)" fill="#1a3a5f">
+    <!-- Eagle body -->
+    <ellipse cx="100" cy="100" rx="50" ry="70"/>
+    
+    <!-- Head -->
+    <circle cx="100" cy="30" r="25"/>
+    <path d="M100,40 L80,55 L100,50 L120,55 Z"/>
+    
+    <!-- Wings spread -->
+    <path d="M50,60 Q-10,40 0,100 Q10,140 50,120 Z"/>
+    <path d="M150,60 Q210,40 200,100 Q190,140 150,120 Z"/>
+    
+    <!-- Shield on chest -->
+    <rect x="80" y="70" width="40" height="55" rx="3"/>
+    <line x1="80" y1="85" x2="120" y2="85" stroke="#fff" stroke-width="3"/>
+    <line x1="80" y1="100" x2="120" y2="100" stroke="#fff" stroke-width="3"/>
+    
+    <!-- Olive branch (left talon) -->
+    <path d="M70,160 Q50,180 40,200" fill="none" stroke="#1a3a5f" stroke-width="3"/>
+    
+    <!-- Arrows (right talon) -->
+    <line x1="130" y1="160" x2="160" y2="200" stroke="#1a3a5f" stroke-width="3"/>
+    <line x1="135" y1="165" x2="165" y2="195" stroke="#1a3a5f" stroke-width="2"/>
+  </g>
+</svg>

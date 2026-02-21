@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" opacity="0.06">
+  <!-- Germany: Federal Eagle (Bundesadler) simplified -->
+  <g transform="translate(100, 80)" fill="#1a3a5f">
+    <!-- Eagle body -->
+    <ellipse cx="100" cy="120" rx="70" ry="90"/>
+    
+    <!-- Eagle head -->
+    <circle cx="100" cy="30" r="35"/>
+    <!-- Beak -->
+    <path d="M100,45 L85,65 L100,60 L115,65 Z"/>
+    
+    <!-- Wings spread wide -->
+    <path d="M30,80 Q-30,50 -20,120 Q-10,160 30,150 
+             Q20,130 25,110 Q20,90 30,80 Z"/>
+    <path d="M170,80 Q230,50 220,120 Q210,160 170,150 
+             Q180,130 175,110 Q180,90 170,80 Z"/>
+    
+    <!-- Wing feathers detail -->
+    <g fill="none" stroke="#1a3a5f" stroke-width="2">
+      <path d="M30,100 Q10,90 0,110"/>
+      <path d="M25,120 Q5,115 -5,130"/>
+      <path d="M170,100 Q190,90 200,110"/>
+      <path d="M175,120 Q195,115 205,130"/>
+    </g>
+    
+    <!-- Tail -->
+    <path d="M70,200 L60,260 L100,240 L140,260 L130,200 Z"/>
+    
+    <!-- Claws -->
+    <g stroke="#1a3a5f" stroke-width="3" fill="none">
+      <path d="M60,200 L40,230 M60,200 L50,235 M60,200 L60,230"/>
+      <path d="M140,200 L160,230 M140,200 L150,235 M140,200 L140,230"/>
+    </g>
+  </g>
+</svg>

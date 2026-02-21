@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" opacity="0.06">
+  <!-- Turkey: Star and Crescent simplified + Tulip pattern (national flower) -->
+  <g transform="translate(100, 80)" fill="#1a3a5f">
+    <!-- Crescent moon -->
+    <path d="M100,20 
+             A80,80 0 1,1 100,180 
+             A60,60 0 1,0 100,20 Z"/>
+    
+    <!-- Star -->
+    <polygon points="170,100 180,130 210,130 185,150 195,180 170,160 145,180 155,150 130,130 160,130"/>
+  </g>
+  
+  <!-- Ottoman/Turkish pattern border -->
+  <defs>
+    <pattern id="turkish-tulip" x="0" y="0" width="80" height="80" patternUnits="userSpaceOnUse">
+      <!-- Simplified tulip motif -->
+      <path d="M40,60 L40,80 M30,60 Q40,40 50,60 Q45,55 40,60 Q35,55 30,60" 
+            fill="none" stroke="#1a3a5f" stroke-width="2" opacity="0.4"/>
+    </pattern>
+  </defs>
+  <rect x="0" y="280" width="400" height="80" fill="url(#turkish-tulip)"/>
+</svg>

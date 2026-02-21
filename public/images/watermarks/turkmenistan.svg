@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" opacity="0.06">
+  <!-- Turkmenistan: 5 carpet guls (traditional patterns) + 8-pointed star -->
+  
+  <!-- Main 8-pointed star -->
+  <g transform="translate(140, 100)" fill="#1a3a5f">
+    <polygon points="60,0 70,40 110,40 78,65 90,105 60,80 30,105 42,65 10,40 50,40"/>
+    <polygon points="60,0 70,40 110,40 78,65 90,105 60,80 30,105 42,65 10,40 50,40" 
+             transform="rotate(22.5, 60, 52.5)" opacity="0.6"/>
+  </g>
+  
+  <!-- 5 Guls (carpet patterns representing 5 tribes) -->
+  <defs>
+    <pattern id="turkmen-gul" x="0" y="0" width="60" height="60" patternUnits="userSpaceOnUse">
+      <!-- Simplified gul pattern -->
+      <rect x="20" y="20" width="20" height="20" fill="none" stroke="#1a3a5f" stroke-width="2"/>
+      <line x1="20" y1="30" x2="40" y2="30" stroke="#1a3a5f" stroke-width="1"/>
+      <line x1="30" y1="20" x2="30" y2="40" stroke="#1a3a5f" stroke-width="1"/>
+      <circle cx="30" cy="30" r="5" fill="#1a3a5f" opacity="0.5"/>
+    </pattern>
+  </defs>
+  
+  <!-- Vertical carpet stripe (like on flag) -->
+  <rect x="40" y="0" width="50" height="400" fill="url(#turkmen-gul)" opacity="0.5"/>
+  
+  <!-- 5 individual guls representing the tribes -->
+  <g fill="none" stroke="#1a3a5f" stroke-width="2">
+    <g transform="translate(320, 60)">
+      <rect x="0" y="0" width="40" height="40" rx="5"/>
+      <diamond cx="20" cy="20"/>
+      <polygon points="20,5 35,20 20,35 5,20"/>
+    </g>
+    <g transform="translate(320, 120)">
+      <rect x="0" y="0" width="40" height="40" rx="5"/>
+      <polygon points="20,5 35,20 20,35 5,20"/>
+    </g>
+    <g transform="translate(320, 180)">
+      <rect x="0" y="0" width="40" height="40" rx="5"/>
+      <polygon points="20,5 35,20 20,35 5,20"/>
+    </g>
+    <g transform="translate(320, 240)">
+      <rect x="0" y="0" width="40" height="40" rx="5"/>
+      <polygon points="20,5 35,20 20,35 5,20"/>
+    </g>
+    <g transform="translate(320, 300)">
+      <rect x="0" y="0" width="40" height="40" rx="5"/>
+      <polygon points="20,5 35,20 20,35 5,20"/>
+    </g>
+  </g>
+</svg>
