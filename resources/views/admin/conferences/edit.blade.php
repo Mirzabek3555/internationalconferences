@@ -24,8 +24,18 @@
                             @endforeach
                         </select>
                     </div>
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Sana</label>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Boshlanish Sanasi (ixtiyoriy)</label>
+                        <input type="date" class="form-control" name="start_date"
+                            value="{{ optional($conference->start_date)->format('Y-m-d') }}">
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Tugash Sanasi (ixtiyoriy)</label>
+                        <input type="date" class="form-control" name="end_date"
+                            value="{{ optional($conference->end_date)->format('Y-m-d') }}">
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Asosiy Sana</label>
                         <input type="date" class="form-control" name="conference_date"
                             value="{{ $conference->conference_date->format('Y-m-d') }}" required>
                     </div>

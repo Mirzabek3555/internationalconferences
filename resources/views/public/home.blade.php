@@ -9,17 +9,17 @@
             <img src="{{ asset('images/logo.png') }}" alt="ISC - International Scientific Conferences" class="hero-logo">
             <h1 class="hero-title">International Scientific Conferences</h1>
             <p class="hero-subtitle">
-                Xalqaro ilmiy konferensiyalar platformasi tadqiqotchilar va ta'lim mutaxassislariga o'z original ilmiy maqolalarini nashr etish imkoniyatini taqdim etadi. Bu ochiq kirish, ekspertlar tomonidan tekshiriladigan oylik konferensiya.
+                The international scientific conferences platform provides researchers and education professionals with the opportunity to publish their original scientific articles. It is an open-access, peer-reviewed monthly conference.
             </p>
             <p class="text-muted mb-4">
-                <i class="bi bi-calendar3 me-2"></i>Nashr chastotasi: Oylik
+                <i class="bi bi-calendar3 me-2"></i>Publication Frequency: Monthly
             </p>
             <div class="d-flex justify-content-center gap-3 flex-wrap">
                 <a href="#conferences" class="btn btn-primary btn-lg px-4">
-                    <i class="bi bi-journal-text me-2"></i>Konferensiyalar
+                    <i class="bi bi-journal-text me-2"></i>Conferences
                 </a>
                 <a href="{{ route('countries') }}" class="btn btn-outline-primary btn-lg px-4">
-                    <i class="bi bi-globe me-2"></i>Barcha davlatlar
+                    <i class="bi bi-globe me-2"></i>All Countries
                 </a>
             </div>
         </div>
@@ -33,19 +33,19 @@
                 <div class="col-md-4">
                     <div class="stat-item">
                         <div class="stat-number">{{ $countries->count() }}+</div>
-                        <div class="stat-label"><i class="bi bi-globe me-1"></i>Davlatlar</div>
+                        <div class="stat-label"><i class="bi bi-globe me-1"></i>Countries</div>
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="stat-item">
                         <div class="stat-number">{{ $totalArticles ?? '500' }}+</div>
-                        <div class="stat-label"><i class="bi bi-file-text me-1"></i>Maqolalar</div>
+                        <div class="stat-label"><i class="bi bi-file-text me-1"></i>Articles</div>
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="stat-item">
                         <div class="stat-number">{{ $countries->count() }}+</div>
-                        <div class="stat-label"><i class="bi bi-calendar-event me-1"></i>Konferensiyalar</div>
+                        <div class="stat-label"><i class="bi bi-calendar-event me-1"></i>Conferences</div>
                     </div>
                 </div>
             </div>
@@ -56,10 +56,10 @@
     <section class="py-5" id="conferences">
         <div class="container">
             <h2 class="section-title text-center">
-                <i class="bi bi-journals me-2"></i>Konferensiyalar
+                <i class="bi bi-journals me-2"></i>Conferences
             </h2>
             <p class="text-center text-muted mb-5">
-                Ko'p sohali tadqiqotlar bo'yicha ilmiy konferensiya materiallari elektron konferensiya seriyalari hisoblanadi.
+                Scientific conference proceedings on multidisciplinary research are electronic conference series.
             </p>
 
             <div class="row g-4">
@@ -99,7 +99,7 @@
                                 <!-- Card Body -->
                                 <div class="card-body p-4">
                                     <h5 class="card-title mb-2" style="color: var(--primary-blue); font-weight: 700;">
-                                        {{ $country->conference_name ?? 'Bu yerda konferensiya nomi yoziladi' }}
+                                        {{ $country->conference_name ?? 'Conference title goes here' }}
                                     </h5>
                                     <p class="text-muted small mb-3">
                                         {{ $country->name }} ({{ $country->name_en }})
@@ -110,18 +110,18 @@
                                         </p>
                                     @else
                                         <p class="card-text small text-muted mb-3">
-                                            Ko'p sohali tadqiqotlar bo'yicha ilmiy konferensiya materiallari. Ushbu konferensiya materiallari konferensiya ishtirokchilari tomonidan taqdim etilgan original tadqiqot ishlarini nashr etadi.
+                                            Scientific conference proceedings on multidisciplinary research. These conference proceedings publish original research papers presented by conference participants.
                                         </p>
                                     @endif
                                     
                                     <div class="d-flex justify-content-between align-items-center">
                                         <div>
                                             <span class="badge bg-primary me-2">
-                                                <i class="bi bi-file-earmark-text me-1"></i>{{ $country->articles_count ?? 0 }} maqola
+                                                <i class="bi bi-file-earmark-text me-1"></i>{{ $country->articles_count ?? 0 }} articles
                                             </span>
                                         </div>
                                         <span class="btn btn-outline-primary btn-sm">
-                                            <i class="bi bi-arrow-right me-1"></i>Maqolalarni ko'rish
+                                            <i class="bi bi-arrow-right me-1"></i>View Articles
                                         </span>
                                     </div>
                                 </div>
@@ -131,7 +131,7 @@
                 @empty
                     <div class="col-12 text-center py-5">
                         <i class="bi bi-globe display-1 text-muted"></i>
-                        <p class="text-muted mt-3">Hozircha konferensiyalar mavjud emas.</p>
+                        <p class="text-muted mt-3">No conferences available at the moment.</p>
                     </div>
                 @endforelse
             </div>
@@ -143,27 +143,26 @@
         <div class="container">
             <div class="row align-items-center">
                 <div class="col-lg-6 mb-4 mb-lg-0">
-                    <h2 class="section-title">Biz haqimizda</h2>
+                    <h2 class="section-title">About Us</h2>
                     <p class="text-muted mb-4">
-                        International Scientific Conferences (ISC) tadqiqotchilar va ta'lim mutaxassislariga o'z original ilmiy maqolalarini
-                        ta'lim amaliyoti va tegishli sohalarda nashr etish imkoniyatini taqdim etadi.
+                        International Scientific Conferences (ISC) provides researchers and education professionals the opportunity to publish their original scientific articles in educational practices and related fields.
                     </p>
                     <ul class="list-unstyled">
                         <li class="mb-3">
                             <i class="bi bi-check-circle-fill text-success me-2"></i>
-                            <strong>Ochiq kirish</strong> - Barcha maqolalar bepul o'qish uchun mavjud
+                            <strong>Open Access</strong> - All articles are available to read for free
                         </li>
                         <li class="mb-3">
                             <i class="bi bi-check-circle-fill text-success me-2"></i>
-                            <strong>Ekspert tekshiruvi</strong> - Barcha maqolalar ekspertlar tomonidan tekshiriladi
+                            <strong>Peer Review</strong> - All articles are peer-reviewed by experts
                         </li>
                         <li class="mb-3">
                             <i class="bi bi-check-circle-fill text-success me-2"></i>
-                            <strong>Oylik nashr</strong> - Har oy yangi konferensiyalar
+                            <strong>Monthly Publication</strong> - New conferences every month
                         </li>
                         <li class="mb-3">
                             <i class="bi bi-check-circle-fill text-success me-2"></i>
-                            <strong>Sertifikat</strong> - Mualliflar uchun sertifikatlar
+                            <strong>Certificate</strong> - Providing certificates for authors
                         </li>
                     </ul>
                 </div>
@@ -171,15 +170,15 @@
                     <div class="card border-0 shadow-lg">
                         <div class="card-body p-4">
                             <h5 class="card-title mb-4">
-                                <i class="bi bi-info-circle me-2 text-primary"></i>Qanday ishlaydi?
+                                <i class="bi bi-info-circle me-2 text-primary"></i>How it works?
                             </h5>
                             <div class="d-flex mb-3">
                                 <div class="flex-shrink-0">
                                     <span class="badge bg-primary rounded-circle p-2">1</span>
                                 </div>
                                 <div class="ms-3">
-                                    <strong>Ro'yxatdan o'ting</strong>
-                                    <p class="text-muted small mb-0">Platformada hisob yarating</p>
+                                    <strong>Contact Administrator</strong>
+                                    <p class="text-muted small mb-0">Reach out to our platform administrators</p>
                                 </div>
                             </div>
                             <div class="d-flex mb-3">
@@ -187,8 +186,8 @@
                                     <span class="badge bg-primary rounded-circle p-2">2</span>
                                 </div>
                                 <div class="ms-3">
-                                    <strong>Maqola yuklang</strong>
-                                    <p class="text-muted small mb-0">O'z ilmiy maqolangizni yuklang</p>
+                                    <strong>Upload Article</strong>
+                                    <p class="text-muted small mb-0">Send your scientific article</p>
                                 </div>
                             </div>
                             <div class="d-flex mb-3">
@@ -196,8 +195,8 @@
                                     <span class="badge bg-primary rounded-circle p-2">3</span>
                                 </div>
                                 <div class="ms-3">
-                                    <strong>Tekshiruv</strong>
-                                    <p class="text-muted small mb-0">Ekspertlar maqolani tekshiradi</p>
+                                    <strong>Review Process</strong>
+                                    <p class="text-muted small mb-0">Our experts review the article</p>
                                 </div>
                             </div>
                             <div class="d-flex">
@@ -205,8 +204,8 @@
                                     <span class="badge bg-success rounded-circle p-2">4</span>
                                 </div>
                                 <div class="ms-3">
-                                    <strong>Nashr va sertifikat</strong>
-                                    <p class="text-muted small mb-0">Maqola nashr etiladi va sertifikat beriladi</p>
+                                    <strong>Publication & Certificate</strong>
+                                    <p class="text-muted small mb-0">Article is published and a certificate is issued</p>
                                 </div>
                             </div>
                         </div>
@@ -216,25 +215,7 @@
         </div>
     </section>
 
-    <!-- Call to Action -->
-    <section class="py-5 bg-primary text-white" style="background: var(--gradient-header);">
-        <div class="container text-center">
-            <h2 class="fw-bold mb-3">O'z maqolangizni joylashtirmoqchimisiz?</h2>
-            <p class="opacity-75 mb-4">
-                Bizning platformamizda o'z ilmiy maqolangizni joylashtiring va sertifikat oling.
-                Maqolalarni o'qish uchun ro'yxatdan o'tish shart emas!
-            </p>
-            @guest
-                <a href="{{ route('login') }}" class="btn btn-light btn-lg px-5">
-                    <i class="bi bi-box-arrow-in-right me-2"></i>Kirish
-                </a>
-            @else
-                <a href="{{ route('user.dashboard') }}" class="btn btn-light btn-lg px-5">
-                    <i class="bi bi-speedometer2 me-2"></i>Dashboardga o'tish
-                </a>
-            @endguest
-        </div>
-    </section>
+
 
     <style>
         .conference-card {

@@ -5,8 +5,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('images/isc-globe.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('images/isc-globe.png') }}">
+    <link rel="apple-touch-icon" href="{{ asset('images/isc-globe.png') }}">
+    <link rel="shortcut icon" href="{{ asset('images/isc-globe.png') }}">
     <meta name="description"
-        content="@yield('description', 'International Scientific Conferences - Xalqaro Ilmiy Konferensiyalar Platformasi')">
+        content="@yield('description', 'International Scientific Conferences Platform')">
 
     <!-- Canonical URL -->
     @hasSection('canonical')
@@ -664,27 +670,17 @@
         <div class="container">
             <div class="row align-items-center">
                 <div class="col-md-6">
-                    <span><i class="bi bi-envelope me-2"></i>info@isc-conferences.org</span>
-                    <span class="ms-4"><i class="bi bi-telephone me-2"></i>+998 90 123 45 67</span>
+                    <span><i class="bi bi-telephone me-2"></i>+998 97 510 64 45</span>
                 </div>
                 <div class="col-md-6 text-end">
                     @auth
                         @if(auth()->user()->isAdmin())
-                            <a href="{{ route('admin.dashboard') }}" class="me-3">
+                            <a href="{{ route('admin.dashboard') }}">
                                 <i class="bi bi-gear me-1"></i>Admin Panel
                             </a>
                         @endif
-                        <a href="{{ route('user.dashboard') }}" class="me-3">
-                            <i class="bi bi-person me-1"></i>{{ auth()->user()->name }}
-                        </a>
-                        <form action="{{ route('logout') }}" method="POST" class="d-inline">
-                            @csrf
-                            <button type="submit" class="btn btn-link p-0 text-white text-decoration-none">
-                                <i class="bi bi-box-arrow-right me-1"></i>Chiqish
-                            </button>
-                        </form>
                     @else
-                        <a href="{{ route('login') }}"><i class="bi bi-box-arrow-in-right me-1"></i>Kirish</a>
+                        <a href="{{ route('login') }}"><i class="bi bi-box-arrow-in-right me-1"></i>Login</a>
                     @endauth
                 </div>
             </div>
@@ -706,22 +702,22 @@
                         <li class="nav-item">
                             <a class="nav-link {{ request()->routeIs('home') ? 'active' : '' }}"
                                 href="{{ route('home') }}">
-                                <i class="bi bi-house-door me-1"></i>Bosh sahifa
+                                <i class="bi bi-house-door me-1"></i>Home
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link {{ request()->routeIs('countries*') ? 'active' : '' }}"
                                 href="{{ route('countries') }}">
-                                <i class="bi bi-globe me-1"></i>Davlatlar
+                                <i class="bi bi-globe me-1"></i>Countries
                             </a>
                         </li>
-                        @guest
-                            <li class="nav-item ms-2">
-                                <a class="nav-link btn-login" href="{{ route('login') }}">
-                                    <i class="bi bi-box-arrow-in-right me-1"></i>Kirish
-                                </a>
-                            </li>
-                        @endguest
+                        <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('archive*') ? 'active' : '' }}"
+                                href="{{ route('archive') }}">
+                                <i class="bi bi-archive me-1"></i>Archive
+                            </a>
+                        </li>
+
                     </ul>
                 </div>
             </div>
@@ -755,38 +751,29 @@
     <!-- Footer -->
     <footer class="footer mt-5">
         <div class="container">
-            <div class="row">
-                <div class="col-lg-4 mb-4">
+            <div class="row d-flex justify-content-between">
+                <div class="col-lg-5 mb-4">
                     <img src="{{ asset('images/logo.png') }}" alt="ISC"
-                        style="max-height: 80px; margin-bottom: 20px; filter: brightness(0) invert(1);">
-                    <p>International Scientific Conferences - Xalqaro ilmiy konferensiyalar platformasi. Turli davlatlar
-                        bo'yicha online ilmiy maqola konferensiyalarida ishtirok eting.</p>
+                        style="max-height: 80px; margin-bottom: 20px;">
+                    <p>International Scientific Conferences platform. Participate in online scientific article conferences across various countries.</p>
                 </div>
-                <div class="col-lg-2 col-md-4 mb-4">
-                    <h5>Havolalar</h5>
+                <div class="col-lg-3 col-md-6 mb-4">
+                    <h5>Links</h5>
                     <ul>
-                        <li><a href="{{ route('home') }}">Bosh sahifa</a></li>
-                        <li><a href="{{ route('countries') }}">Davlatlar</a></li>
+                        <li><a href="{{ route('home') }}">Home</a></li>
+                        <li><a href="{{ route('countries') }}">Countries</a></li>
+                        <li><a href="{{ route('archive') }}">Archive</a></li>
                     </ul>
                 </div>
-                <div class="col-lg-3 col-md-4 mb-4">
-                    <h5>Foydalanuvchilar uchun</h5>
-                    <ul>
-                        <li><a href="{{ route('login') }}">Kirish</a></li>
-                    </ul>
-                </div>
-                <div class="col-lg-3 col-md-4 mb-4">
-                    <h5>Aloqa</h5>
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <h5>Contact</h5>
                     <p>
-                        <i class="bi bi-envelope me-2"></i>info@isc-conferences.org<br>
-                        <i class="bi bi-telephone me-2"></i>+998 90 123 45 67<br>
-                        <i class="bi bi-geo-alt me-2"></i>Toshkent, O'zbekiston
+                        <i class="bi bi-telephone me-2"></i>+998 97 510 64 45
                     </p>
                 </div>
             </div>
             <div class="footer-bottom">
-                <p class="mb-0">&copy; {{ date('Y') }} International Scientific Conferences. Barcha huquqlar
-                    himoyalangan.</p>
+                <p class="mb-0">&copy; {{ date('Y') }} International Scientific Conferences. All rights reserved.</p>
             </div>
         </div>
     </footer>

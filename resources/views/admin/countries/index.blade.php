@@ -16,6 +16,7 @@
                     <tr>
                         <th style="width: 60px;">Bayroq</th>
                         <th style="width: 200px;">Davlat</th>
+                        <th style="width: 80px;">Tartib</th>
                         <th>Konferensiya nomi</th>
                         <th style="width: 80px;">Cover</th>
                         <th style="width: 100px;">Status</th>
@@ -37,6 +38,9 @@
                                 <strong>{{ $country->name }}</strong>
                                 <br>
                                 <small class="text-muted">{{ $country->name_en }} ({{ $country->code }})</small>
+                            </td>
+                            <td>
+                                <span class="badge bg-info">{{ $country->schedule_order }}</span>
                             </td>
                             <td>
                                 <!-- Inline edit for conference name -->

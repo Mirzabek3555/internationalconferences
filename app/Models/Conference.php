@@ -17,6 +17,8 @@ class Conference extends Model
         'title',
         'description',
         'conference_date',
+        'start_date',
+        'end_date',
         'month_year',
         'status',
         'collection_pdf_path',
@@ -26,6 +28,8 @@ class Conference extends Model
 
     protected $casts = [
         'conference_date' => 'date',
+        'start_date' => 'date',
+        'end_date' => 'date',
         'is_completed' => 'boolean',
     ];
 

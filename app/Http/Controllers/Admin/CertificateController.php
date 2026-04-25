@@ -48,9 +48,6 @@ class CertificateController extends Controller
         }
     }
 
-    /**
-     * Sertifikatni yuklab olish
-     */
     public function download(Article $article)
     {
         $certificate = $article->certificate;
@@ -60,6 +57,26 @@ class CertificateController extends Controller
                 ->with('error', 'Sertifikat topilmadi.');
         }
 
-        return Storage::disk('public')->download($certificate->pdf_path);
+        $path     = Storage::disk('public')->path($certificate->pdf_path);
+        
+        // Muallif ismi bilan nomlash
+        $authorName = preg_replace('/[\/\\:\*\?"<>\|]/', '', $article->author_display_name);
+        if (empty($authorName)) {
+            $authorName = 'Sertifikat_' . ($certificate->certificate_number ?? $article->id);
+        }
+        
+        $extension = pathinfo($certificate->pdf_path, PATHINFO_EXTENSION);
+        if (!$extension) {
+            $extension = str_ends_with($certificate->pdf_path, '.zip') ? 'zip' : (str_ends_with($certificate->pdf_path, '.jpg') ? 'jpg' : 'pdf');
+        }
+        
+        $fileName = trim($authorName) . ' - sertifikat' . '.' . $extension;
+
+        $mime = $extension === 'zip' ? 'application/zip' : ($extension === 'jpg' ? 'image/jpeg' : 'application/pdf');
+
+        return response()->file($path, [
+            'Content-Type'        => $mime,
+            'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
+        ]);
     }
 }

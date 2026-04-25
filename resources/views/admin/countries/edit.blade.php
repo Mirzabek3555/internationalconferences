@@ -26,22 +26,27 @@
                     </div>
                     <div class="card-body">
                         <div class="row">
-                            <div class="col-md-5 mb-3">
+                            <div class="col-md-3 mb-3">
                                 <label class="form-label fw-bold">Nomi (O'zbekcha) <span
                                         class="text-danger">*</span></label>
                                 <input type="text" class="form-control form-control-lg" name="name"
                                     value="{{ old('name', $country->name) }}" required>
                             </div>
-                            <div class="col-md-5 mb-3">
+                            <div class="col-md-3 mb-3">
                                 <label class="form-label fw-bold">Nomi (Inglizcha) <span
                                         class="text-danger">*</span></label>
                                 <input type="text" class="form-control form-control-lg" name="name_en"
                                     value="{{ old('name_en', $country->name_en) }}" required>
                             </div>
-                            <div class="col-md-2 mb-3">
+                            <div class="col-md-3 mb-3">
                                 <label class="form-label fw-bold">Kod <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control form-control-lg text-center text-uppercase"
                                     name="code" value="{{ old('code', $country->code) }}" maxlength="3" required>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label class="form-label fw-bold">Taqsimot Tartibi</label>
+                                <input type="number" class="form-control form-control-lg text-center"
+                                    name="schedule_order" value="{{ old('schedule_order', $country->schedule_order) }}">
                             </div>
                         </div>
                     </div>

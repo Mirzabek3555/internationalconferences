@@ -7,7 +7,7 @@
     <title>{{ $article->title }}</title>
     <style>
         @page {
-            margin: 12mm 12mm 18mm 12mm;
+            margin: 12mm 12mm 26mm 12mm; /* Pastki margin 18mm dan 26mm ga oshirildi - joy yetarliligi kafolatlanadi */
             size: A4 portrait;
         }
 
@@ -96,6 +96,7 @@
         .main-content {
             margin-left: 24mm;
             padding-right: 2mm;
+            padding-bottom: 5mm; /* Sahifaning eng oxirigacha bormaslik uchun qo'shimcha ichki padding */
         }
 
         /* ===== HEADER SECTION ===== */
@@ -245,11 +246,19 @@
             font-size: 9pt;
             line-height: 1.35;
             text-align: justify;
-            text-indent: 4mm;
         }
 
         .section-text p {
-            margin-bottom: 1.5mm;
+            margin-bottom: 2mm;
+            text-indent: 4mm;
+            page-break-inside: auto;
+            /* Yozuvlar bo'linganda o'ta yopishib qolmaslik yoki bitta qator bo'lib oxiriga sig'may qolishni oldini olish (DomPDF rule) */
+            orphans: 3;
+            widows: 3;
+        }
+
+        .section-text p:first-of-type {
+            margin-top: 1mm;
         }
 
         /* ===== REFERENCES ===== */
@@ -304,6 +313,80 @@
         /* ===== PAGE BREAK ===== */
         .page-break {
             page-break-after: always;
+        }
+
+        /* ===== KATEX FORMULA STYLES ===== */
+        @if(!empty($katexCss ?? ''))
+            {!! $katexCss !!}
+        @endif
+
+        /* DOCX content uchun qo'shimcha stillar */
+        .docx-content img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 2mm auto;
+        }
+
+        .docx-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 2mm 0;
+            font-size: 8pt;
+        }
+
+        .docx-content table td,
+        .docx-content table th {
+            border: 0.3pt solid #999;
+            padding: 1mm 2mm;
+            text-align: left;
+        }
+
+        .docx-content table th {
+            background: #f0f0f0;
+            font-weight: 700;
+        }
+
+        .docx-content h2, .docx-content h3, .docx-content h4 {
+            font-family: 'DejaVu Sans', sans-serif;
+            font-weight: 700;
+            color: #000000;
+            text-transform: uppercase;
+            margin-top: 3mm;
+            margin-bottom: 1.5mm;
+            page-break-after: avoid;
+        }
+
+        .docx-content h2 { font-size: 10pt; }
+        .docx-content h3 { font-size: 9pt; }
+        .docx-content h4 { font-size: 8.5pt; }
+
+        .docx-content p {
+            margin-bottom: 2mm;
+            text-indent: 4mm;
+            text-align: justify;
+            page-break-inside: auto;
+            orphans: 3;
+            widows: 3;
+        }
+
+        .docx-content ol, .docx-content ul {
+            padding-left: 6mm;
+            margin-bottom: 2mm;
+        }
+
+        .docx-content li {
+            margin-bottom: 1mm;
+        }
+
+        .math-formula {
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        .math-error {
+            color: #cc0000;
+            font-style: italic;
         }
     </style>
 </head>
@@ -416,7 +499,12 @@
         @endif
 
         <!-- Main Content -->
-        @if($article->content)
+        @if(!empty($isDocxContent ?? false) && !empty($processedHtml ?? ''))
+            {{-- DOCX dan kelgan HTML kontent (formulalar, jadvallar, rasmlar bilan) --}}
+            <div class="content-section docx-content">
+                {!! $processedHtml !!}
+            </div>
+        @elseif($article->content)
             @php
                 $content = $article->content;
                 // Try to split into sections
@@ -453,19 +541,25 @@
                     <div class="section-text">
                         @php
                             $sectionContent = $section['content'];
-                            // Satr uzilishlarini normalizatsiya qilish
                             $sectionContent = str_replace("\r\n", "\n", $sectionContent);
                             $sectionContent = str_replace("\r", "\n", $sectionContent);
-                            // Paragraf uzilishlarini (ikki va undan ortiq bo'sh satr) saqlash
+                            
+                            // 2 va undan ortiq yangi qatorlarni topib paragraph ajratgichga aylantirish
                             $sectionContent = preg_replace('/\n\s*\n/', '{{PARA_BREAK}}', $sectionContent);
-                            // Yakka satr uzilishlarini bo'shliqqa aylantirish (paragraf ichida)
+                            
+                            // Paragraf ichidagi bitta enter'larni joyiga aylantirish (yaxlit matn bo'lishi uchun)
                             $sectionContent = str_replace("\n", ' ', $sectionContent);
-                            // Ortiqcha bo'shliqlarni tozalash
                             $sectionContent = preg_replace('/ {2,}/', ' ', $sectionContent);
-                            // Paragraf uzilishlarini qaytarish
-                            $sectionContent = str_replace('{{PARA_BREAK}}', "\n\n", $sectionContent);
+                            
+                            // Paragraflar arrayiga bo'lish
+                            $paragraphs = explode('{{PARA_BREAK}}', $sectionContent);
                         @endphp
-                        {!! nl2br(e(trim($sectionContent))) !!}
+                        
+                        @foreach($paragraphs as $para)
+                            @if(trim($para))
+                                <p>{!! e(trim($para)) !!}</p>
+                            @endif
+                        @endforeach
                     </div>
                 </div>
             @endforeach

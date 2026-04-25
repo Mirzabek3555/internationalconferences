@@ -1,1 +1,0 @@
-<?php if(auth()->user()->role === 'admin' && $article->certificate): endif;

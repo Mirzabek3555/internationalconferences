@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\ArticlePdfService;
 use App\Services\CertificateService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class ArticleController extends Controller
@@ -28,30 +29,78 @@ class ArticleController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Article::with(['conference.country', 'author']);
+        // Oylar bo'yicha konferensiyalar va maqolalar
+        $conferencesQuery = Conference::with(['country', 'articles.author'])
+            ->orderBy('month_year', 'desc');
 
-        if ($request->filled('conference_id')) {
-            $query->where('conference_id', $request->conference_id);
+        // Filter: davlat bo'yicha
+        if ($request->filled('country_id')) {
+            $conferencesQuery->where('country_id', $request->country_id);
         }
 
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
+        // Filter: oy bo'yicha
+        if ($request->filled('month_year')) {
+            $conferencesQuery->where('month_year', $request->month_year);
         }
 
-        $articles = $query->latest()->paginate(15);
-        $conferences = Conference::with('country')->get();
+        $conferences = $conferencesQuery->get();
 
-        return view('admin.articles.index', compact('articles', 'conferences'));
+        // Barcha davlatlar (filter uchun)
+        $countries = \App\Models\Country::where('is_active', true)->orderBy('name')->get();
+
+        // Oy ro'yxati (filter uchun) - mavjud konferensiyalardan
+        $availableMonths = Conference::select('month_year')
+            ->distinct()
+            ->orderBy('month_year', 'desc')
+            ->pluck('month_year');
+
+        return view('admin.articles.index', compact('conferences', 'countries', 'availableMonths'));
     }
 
     /**
      * Yangi maqola qo'shish formasi
      */
-    public function create()
+    public function create(Request $request)
     {
         $countries = Country::where('is_active', true)->orderBy('name')->get();
         $authors = User::where('role', 'author')->orderBy('name')->get();
-        return view('admin.articles.create', compact('countries', 'authors'));
+
+        // Agar conference_id berilgan bo'lsa, oy va davlatni oldindan belgilaymiz
+        $preselectedConference = null;
+        if ($request->filled('conference_id')) {
+            $preselectedConference = Conference::with('country')->find($request->conference_id);
+        }
+
+        return view('admin.articles.create', compact('countries', 'authors', 'preselectedConference'));
+    }
+
+    /**
+     * Davlat bo'yicha mavjud oylik konferensiyalarni qaytarish (AJAX)
+     */
+    public function conferencesByCountry(Request $request)
+    {
+        $countryId = $request->get('country_id');
+        $conferences = Conference::where('country_id', $countryId)
+            ->orderBy('month_year', 'desc')
+            ->get(['id', 'month_year', 'title', 'status'])
+            ->map(function ($c) {
+            $monthNames = [
+                '01' => 'Yanvar', '02' => 'Fevral', '03' => 'Mart',
+                '04' => 'Aprel', '05' => 'May', '06' => 'Iyun',
+                '07' => 'Iyul', '08' => 'Avgust', '09' => 'Sentabr',
+                '10' => 'Oktabr', '11' => 'Noyabr', '12' => 'Dekabr',
+            ];
+            [$year, $month] = explode('-', $c->month_year);
+            $c->label = ($monthNames[$month] ?? $month) . ' ' . $year;
+            $c->status_label = [
+                'draft' => 'Loyiha',
+                'active' => 'Faol',
+                'completed' => 'Yakunlangan',
+            ][$c->status] ?? $c->status;
+            return $c;
+        });
+
+        return response()->json($conferences);
     }
 
     /**
@@ -70,105 +119,85 @@ class ArticleController extends Controller
         ini_set('max_execution_time', '0');
 
         $rules = [
-            'country_id' => 'required|exists:countries,id',
-            'author_name' => 'required|string|max:255',
+            'country_id'      => 'required|exists:countries,id',
+            'month_year'      => ['required', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
+            'conference_date' => 'required|date',
+            'author_name'     => 'required|string|max:255',
             'author_affiliation' => 'nullable|string|max:500',
-            'co_authors' => 'nullable|string',
-            'title' => 'required|string|max:500',
-            'abstract' => 'nullable|string',
-            'keywords' => 'nullable|string|max:500',
-            'references' => 'nullable|string',
-            'order_number' => 'required|integer|min:1',
-            'start_page' => 'required|integer|min:1',
-            'pdf_file' => 'nullable|file|mimes:pdf|max:20480', // 20MB
+            'co_authors'      => 'nullable|string',
+            'title'           => 'required|string|max:500',
+            'abstract'        => 'nullable|string',
+            'keywords'        => 'nullable|string|max:500',
+            'references'      => 'nullable|string',
+            'docx_file'       => 'required|file|mimes:docx,doc|max:20480', // 20MB DOCX
         ];
-
-        // Agar PDF fayl bo'lmasa, content majburiy
-        if (!$request->hasFile('pdf_file')) {
-            $rules['content'] = 'required|string|min:100';
-        } else {
-            $rules['content'] = 'nullable|string';
-        }
 
         $validated = $request->validate($rules);
 
         // Davlat uchun konferensiyani topish yoki yaratish
         $country = Country::findOrFail($validated['country_id']);
+
+        // month_year va conference_date admin tomonidan qo'lda kiritilgan
+        $monthYear      = $validated['month_year'];
+        $conferenceDate = $validated['conference_date']; // Masalan: 2026-03-12
+
         $conference = Conference::firstOrCreate(
-            [
-                'country_id' => $country->id,
-                'month_year' => now()->format('Y-m'),
-            ],
-            [
-                'title' => $country->conference_name ?? $country->name . ' Scientific Conference',
-                'description' => $country->conference_description,
-                'conference_date' => now(),
-                'status' => 'active',
-            ]
+        [
+            'country_id' => $country->id,
+            'month_year' => $monthYear,
+        ],
+        [
+            'title'           => $country->conference_name ?? $country->name . ' Scientific Conference',
+            'description'     => $country->conference_description,
+            'conference_date' => $conferenceDate,
+            'status'          => 'active',
+        ]
         );
 
-        // Konferensiya sanasini har doim bugungi kunga yangilash
-        // firstOrCreate mavjud yozuvni yangilamaydi, shuning uchun alohida update
-        $conference->update(['conference_date' => now()]);
+        // Agar konferensiya allaqachon mavjud bo'lsa, sanasini yangilaymiz
+        if ($conference->wasRecentlyCreated === false) {
+            $conference->update(['conference_date' => $conferenceDate]);
+        }
 
-        $content = $validated['content'] ?? '';
+        $content = '';
         $basePdfPath = null;
+        $docxPath = null;
         $pageCount = 1;
 
         // =====================================================
-        // 1-VARIANT: PDF YUKLANGAN (ENG YAXSHI - FORMULALAR SAQLANADI)
+        // 2-VARIANT: DOCX YUKLANGAN (FORMULALAR KONVERT QILINADI)
         // =====================================================
-        if ($request->hasFile('pdf_file')) {
+        if ($request->hasFile('docx_file')) {
             try {
-                // Asl PDF ni saqlash
-                $basePdfPath = $request->file('pdf_file')->store('articles/base', 'public');
-                $fullBasePath = Storage::disk('public')->path($basePdfPath);
+                $docxPath = $request->file('docx_file')->store('articles/docx', 'public');
+                $fullDocxPath = Storage::disk('public')->path($docxPath);
 
-                // Sahifalar sonini aniqlash
-                // Sahifalar sonini aniqlash - Memory friendly
-                $pdfParser = new \Smalot\PdfParser\Parser();
+                // PHPWord bilan sahifa sonini taxminlash
                 try {
-                    $pdf = $pdfParser->parseFile($fullBasePath);
-                    $pageCount = count($pdf->getPages());
-
-                    // Matnni olish (abstract uchun, agar bo'sh bo'lsa)
-                    if (empty($validated['abstract'])) {
-                        $extractedText = $pdf->getText();
-
-                        // UTF-8 ga o'tkazish va tozalash
-                        if (!mb_check_encoding($extractedText, 'UTF-8')) {
-                            $extractedText = mb_convert_encoding($extractedText, 'UTF-8', 'UTF-8');
-                        }
-                        // Nazorat belgilarini olib tashlash (yangi qator va tab lardan tashqari)
-                        $extractedText = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $extractedText);
-
-                        // Birinchi 500 belgini abstract sifatida olish
-                        if (mb_strlen($extractedText) > 100) {
-                            $content = mb_substr($extractedText, 0, 500) . '...';
+                    $phpWord = \PhpOffice\PhpWord\IOFactory::load($fullDocxPath);
+                    $totalText = '';
+                    foreach ($phpWord->getSections() as $section) {
+                        foreach ($section->getElements() as $element) {
+                            if (method_exists($element, 'getText')) {
+                                $totalText .= $element->getText() . ' ';
+                            }
                         }
                     }
+                    $pageCount = max(1, ceil(mb_strlen($totalText) / 3000));
                 } catch (\Exception $e) {
-                    // PDF parse xatolik - default qiymatlar
                     $pageCount = 1;
-                    \Log::warning('PDF parsing failed: ' . $e->getMessage());
+                    \Log::warning('DOCX page count estimation failed: ' . $e->getMessage());
                 }
-
-            } catch (\Exception $e) {
-                return back()->withErrors(['pdf_file' => 'PDF faylni yuklashda xatolik: ' . $e->getMessage()])->withInput();
+            }
+            catch (\Exception $e) {
+                return back()->withErrors(['docx_file' => 'DOCX faylni yuklashda xatolik: ' . $e->getMessage()])->withInput();
             }
         }
 
-        // Sahifalar diapazonini hisoblash
-        if (!$basePdfPath && !empty($content)) {
-            // Matndan sahifa soni
-            $plainText = strip_tags($content);
-            $contentLength = mb_strlen($plainText);
-            $pageCount = max(1, ceil($contentLength / 3000));
-        }
+        $startPage = 1;
 
-        $startPage = $validated['start_page'];
-        $endPage = $startPage + $pageCount - 1;
-        $pageRange = $startPage == $endPage ? (string) $startPage : "{$startPage}-{$endPage}";
+        $maxOrder = Article::where('conference_id', $conference->id)->max('order_number');
+        $nextOrder = $maxOrder ? $maxOrder + 1 : 1;
 
         // Maqolani yaratish
         $article = Article::create([
@@ -180,47 +209,32 @@ class ArticleController extends Controller
             'abstract' => $validated['abstract'],
             'keywords' => $validated['keywords'] ?? null,
             'references' => $validated['references'] ?? null,
-            'content' => $content,
+            'content' => '',
             'page_count' => $pageCount,
-            'page_range' => $pageRange,
-            'order_number' => $validated['order_number'],
+            'page_range' => '1-' . $pageCount,
+            'order_number' => $nextOrder,
             'status' => 'pending',
-            'pdf_path' => $basePdfPath, // Base PDF (agar yuklangan bo'lsa)
+            'pdf_path' => null, 
         ]);
 
         // =====================================================
-        // PDF YARATISH / OVERLAY QO'SHISH
+        // DOCX DAN PDF YARATISH (Puppeteer + mergeWithCoverPage)
         // =====================================================
         try {
-            if ($basePdfPath) {
-                // PDF yuklangan - faqat overlay qo'shish
-                \Log::info('Starting PDF overlay application', ['article_id' => $article->id]);
-                $startTime = microtime(true);
+            \Log::info('Starting DOCX to PDF generation (Puppeteer)', ['article_id' => $article->id]);
+            $startTime = microtime(true);
 
-                $formattedPath = $this->articlePdfService->applyOverlayToPdf($article, $country);
+            $fullDocxPath = Storage::disk('public')->path($docxPath);
+            $formattedPath = $this->articlePdfService->generateFromDocx($fullDocxPath, $article, $country);
 
-                $duration = round(microtime(true) - $startTime, 2);
-                \Log::info('PDF overlay completed', ['article_id' => $article->id, 'duration' => $duration . 's']);
+            $duration = round(microtime(true) - $startTime, 2);
+            \Log::info('DOCX PDF generation completed', ['article_id' => $article->id, 'duration' => $duration . 's']);
 
-                $article->update([
-                    'formatted_pdf_path' => $formattedPath,
-                ]);
-            } else {
-                // Matndan PDF yaratish (INCOP uslubida)
-                \Log::info('Starting INCOP style PDF generation', ['article_id' => $article->id]);
-                $startTime = microtime(true);
-
-                $pdfPath = $this->articlePdfService->generateIncopStyle($article, $country);
-
-                $duration = round(microtime(true) - $startTime, 2);
-                \Log::info('INCOP PDF generation completed', ['article_id' => $article->id, 'duration' => $duration . 's']);
-
-                $article->update([
-                    'pdf_path' => $pdfPath,
-                    'formatted_pdf_path' => $pdfPath,
-                ]);
-            }
-        } catch (\Exception $e) {
+            $article->update([
+                'formatted_pdf_path' => $formattedPath,
+            ]);
+        }
+        catch (\Exception $e) {
             \Log::error('PDF creation failed: ' . $e->getMessage());
             return redirect()->back()
                 ->with('error', 'PDF yaratishda xatolik: ' . $e->getMessage())
@@ -265,40 +279,43 @@ class ArticleController extends Controller
         ini_set('memory_limit', '512M');
 
         $validated = $request->validate([
-            'country_id' => 'required|exists:countries,id',
-            'author_id' => 'nullable|exists:users,id',
-            'author_name' => 'required|string|max:255',
+            'country_id'      => 'required|exists:countries,id',
+            'month_year'      => ['required', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
+            'conference_date' => 'required|date',
+            'author_id'       => 'nullable|exists:users,id',
+            'author_name'     => 'required|string|max:255',
             'author_affiliation' => 'nullable|string|max:500',
-            'title' => 'required|string|max:255',
-            'abstract' => 'nullable|string',
-            'content' => 'nullable|string',
-            'pdf' => 'nullable|file|mimes:pdf|max:10240',
-            'page_count' => 'required|integer|min:1|max:100',
-            'page_range' => 'required|string|max:20',
-            'order_number' => 'required|integer|min:1',
+            'title'           => 'required|string|max:255',
+            'abstract'        => 'nullable|string',
+            'docx_file'       => 'nullable|file|mimes:docx,doc|max:20480',
         ]);
 
         // Davlat uchun konferensiyani topish yoki yaratish
         $country = Country::findOrFail($validated['country_id']);
+
+        // month_year va conference_date admin tomonidan qo'lda kiritilgan
+        $monthYear      = $validated['month_year'];
+        $conferenceDate = $validated['conference_date']; // Masalan: 2026-03-12
+
         $conference = Conference::firstOrCreate(
-            [
-                'country_id' => $country->id,
-                'month_year' => $article->conference->month_year ?? now()->format('Y-m'),
-            ],
-            [
-                'title' => $country->conference_name ?? $country->name . ' Scientific Conference',
-                'description' => $country->conference_description,
-                'conference_date' => now(),
-                'status' => 'active',
-            ]
+        [
+            'country_id' => $country->id,
+            'month_year' => $monthYear,
+        ],
+        [
+            'title'           => $country->conference_name ?? $country->name . ' Scientific Conference',
+            'description'     => $country->conference_description,
+            'conference_date' => $conferenceDate,
+            'status'          => 'active',
+        ]
         );
 
-        // Konferensiya sanasini har doim bugungi kunga yangilash
-        $conference->update(['conference_date' => now()]);
+        // Konferensiya sanasini yangilash (agar o'zgargan bo'lsa)
+        $conference->update(['conference_date' => $conferenceDate]);
 
-        // Agar yangi PDF yuklansa
-        if ($request->hasFile('pdf')) {
-            // Eski PDF ni o'chirish
+        // Agar yangi DOCX fayli yuklansa
+        if ($request->hasFile('docx_file')) {
+            // Eski fayllarni o'chirish (ixtiyoriy, agar saqlamoqchi bo'lsangiz komment qilish mumkin)
             if ($article->pdf_path) {
                 Storage::disk('public')->delete($article->pdf_path);
             }
@@ -306,13 +323,34 @@ class ArticleController extends Controller
                 Storage::disk('public')->delete($article->formatted_pdf_path);
             }
 
-            $validated['pdf_path'] = $request->file('pdf')->store('articles', 'public');
+            $docxPath = $request->file('docx_file')->store('articles/docx', 'public');
+            $fullDocxPath = Storage::disk('public')->path($docxPath);
 
-            // Yangi formatlangan PDF yaratish (INCOP Style)
+            // Yangi sahifa soni taxmini (ixtiyoriy, ammo docx dan olish qiyinroq)
+            $pageCount = $article->page_count; 
             try {
-                $formattedPath = $this->articlePdfService->applyOverlayToPdf($article, $country);
+                $phpWord = \PhpOffice\PhpWord\IOFactory::load($fullDocxPath);
+                $totalText = '';
+                foreach ($phpWord->getSections() as $section) {
+                    foreach ($section->getElements() as $element) {
+                        if (method_exists($element, 'getText')) {
+                            $totalText .= $element->getText() . ' ';
+                        }
+                    }
+                }
+                $pageCount = max(1, ceil(mb_strlen($totalText) / 3000));
+            } catch (\Exception $e) {}
+
+            $validated['page_count'] = $pageCount;
+            $validated['page_range'] = '1-' . $pageCount;
+
+            // DOCX -> PDF
+            try {
+                \Log::info('Starting DOCX to PDF generation on update', ['article_id' => $article->id]);
+                $formattedPath = $this->articlePdfService->generateFromDocx($fullDocxPath, $article, $country);
                 $validated['formatted_pdf_path'] = $formattedPath;
-            } catch (\Exception $e) {
+            }
+            catch (\Exception $e) {
                 \Log::error('Formatted PDF update failed: ' . $e->getMessage());
             }
         }
@@ -323,16 +361,23 @@ class ArticleController extends Controller
 
         $article->update($validated);
 
-        // Agar PDF yuklanmagan bo'lsa va matn bo'lsa, PDF ni yangi INCOP dizaynida qayta generatsiya qilish
-        if (!$request->hasFile('pdf') && $request->filled('content')) {
+        // PDF qayta generatsiya qilinishi kerakmi? (sarlavha, muallif, konf o'zgarsa)
+        $needsRegeneration = $article->wasChanged(['title', 'abstract', 'author_name', 'author_affiliation', 'keywords', 'references', 'country_id', 'conference_date']);
+
+        if (!$request->hasFile('docx_file') && $needsRegeneration && $article->pdf_path) {
+            // Agar DOCX o'zgarmagan bo'lsa, lekin sarlavha, ism o'zgarsa — cover qismini qayta yasash kerak bo'lishi mumkin.
+            // (generateFromDocx aslida to'liq faylni qayta yasash degani. Lekin bu yerda to'liq DOCX fayl saqlanib qolmagan bo'lishi mumkin.
+            // Odatda Article da "source docx path" ustuni bo'lishi kerak. Biz hozir faqat ma'lumotlarni saqlaymiz.)
+            
+            // Asos cover page o'zgarganda faqat mergeWithCoverPage ni qayta ishlashi mumkin, agar base_pdf bo'lsa
             try {
-                $pdfPath = $this->articlePdfService->generateIncopStyle($article, $country);
-                $article->update([
-                    'pdf_path' => $pdfPath,
-                    'formatted_pdf_path' => $pdfPath,
-                ]);
-            } catch (\Exception $e) {
-                \Log::error('PDF regeneration failed: ' . $e->getMessage());
+                if (file_exists(Storage::disk('public')->path($article->pdf_path))) {
+                    $formattedPath = $this->articlePdfService->mergeWithCoverPage($article, $country);
+                    $article->update(['formatted_pdf_path' => $formattedPath]);
+                }
+            }
+            catch (\Exception $e) {
+                \Log::error('PDF cover page regeneration failed: ' . $e->getMessage());
             }
         }
 
@@ -369,9 +414,13 @@ class ArticleController extends Controller
      */
     public function publish(Article $article)
     {
+        $publishedAt = $article->conference && $article->conference->conference_date
+            ? \Carbon\Carbon::parse($article->conference->conference_date)->setTime(12, 0, 0)
+            : now();
+
         $article->update([
             'status' => 'published',
-            'published_at' => now(),
+            'published_at' => $publishedAt,
             'article_link' => url("/article/{$article->id}"),
         ]);
 
@@ -387,16 +436,46 @@ class ArticleController extends Controller
      */
     public function downloadFormatted(Article $article)
     {
+        // Mualliflar ro'yxatini shakllantiramiz
+        $authorsList = [];
+        $mainAuthor = mb_convert_case(trim($article->author_display_name), MB_CASE_TITLE, 'UTF-8');
+        if (!empty($mainAuthor)) {
+            $authorsList[] = $mainAuthor;
+        }
+
+        if (!empty($article->co_authors)) {
+            $coAuthorsRaw = explode("\n", trim($article->co_authors));
+            foreach ($coAuthorsRaw as $ca) {
+                $nameParts = explode(',', $ca);
+                $caName = mb_convert_case(trim($nameParts[0]), MB_CASE_TITLE, 'UTF-8');
+                if (!empty($caName)) {
+                    $authorsList[] = $caName;
+                }
+            }
+        }
+        
+        $authorsString = implode(', ', $authorsList);
+        if (empty($authorsString)) {
+            $authorsString = 'Maqola_' . $article->id;
+        }
+        
+        // Fayl nomi xavfsiz bo'lishi uchun xato belgilarni olib tashlaymiz
+        $safeFileName = preg_replace('/[\/\\:\*\?"<>\|]/', '', $authorsString);
+        // Juda uzun nom bo'lsa kesamiz
+        $safeFileName = mb_strimwidth($safeFileName, 0, 120, "...");
+        $downloadFileName = trim($safeFileName, ', ') . '.pdf';
+
         if ($article->formatted_pdf_path && Storage::disk('public')->exists($article->formatted_pdf_path)) {
-            return Storage::disk('public')->download($article->formatted_pdf_path);
+            return Storage::disk('public')->download($article->formatted_pdf_path, $downloadFileName);
         }
 
         // Agar mavjud bo'lmasa, yaratish
         try {
             $formattedPath = $this->articlePdfService->formatArticle($article);
             $article->update(['formatted_pdf_path' => $formattedPath]);
-            return Storage::disk('public')->download($formattedPath);
-        } catch (\Exception $e) {
+            return Storage::disk('public')->download($formattedPath, $downloadFileName);
+        }
+        catch (\Exception $e) {
             return redirect()->back()->with('error', 'Formatlangan PDF yaratishda xatolik: ' . $e->getMessage());
         }
     }
@@ -416,7 +495,8 @@ class ArticleController extends Controller
             $article->update(['formatted_pdf_path' => $formattedPath]);
 
             return redirect()->back()->with('success', 'Maqola qayta formatlandi.');
-        } catch (\Exception $e) {
+        }
+        catch (\Exception $e) {
             return redirect()->back()->with('error', 'Xatolik: ' . $e->getMessage());
         }
     }

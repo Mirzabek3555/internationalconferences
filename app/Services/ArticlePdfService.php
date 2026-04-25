@@ -8,6 +8,7 @@ use App\Models\Country;
 use TCPDF;
 use setasign\Fpdi\Tcpdf\Fpdi;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 use Barryvdh\DomPDF\Facade\Pdf;
 
 class ArticlePdfService
@@ -108,6 +109,217 @@ class ArticlePdfService
         }
 
         return $path;
+    }
+
+    /**
+     * DOCX fayldan professional PDF yaratish
+     * 
+     * Pipeline:
+     * 1. DOCX → HTML (mammoth.js + OMML → MathML → KaTeX)
+     * 2. HTML → PDF (Puppeteer — formulalar to'liq saqlanadi)
+     * 3. Base PDF → mergeWithCoverPage (INCOP dizayn overlay)
+     */
+    public function generateFromDocx(string $docxPath, Article $article, Country $country): string
+    {
+        set_time_limit(0);
+        ini_set('memory_limit', '-1');
+
+        $article->load(['conference']);
+        $conference = $article->conference;
+        $countryColors = $this->getCountryColors($country->code ?? 'GB');
+        $primaryRgb = $this->hexToRgb($countryColors['primary']);
+
+        // Calculate the first page top margin dynamically based on the exact height of the header blocks
+        // so Puppeteer can reserve the exact white space needed.
+        $leftMargin = 33; // 28mm sidebar + 5mm gap
+        $rightMargin = 15;
+        $contentWidth = 210 - $leftMargin - $rightMargin;
+        $firstPageTopMargin = $this->calculateHeaderHeight($article, $country, $conference, $contentWidth) + 2; // +2mm safe margin buffer
+
+        // 1. DOCX ni HTML ga aylantirish (formulalar bilan)
+        $docxProcessor = new DocxProcessorService();
+        $result = $docxProcessor->processDocx($docxPath);
+        $articleHtml = $result['html'];
+
+        // 2. Article content ni yangilash (HTML saqlanadi — formulalar uchun)
+        if (!empty($articleHtml)) {
+            $article->update(['content' => $articleHtml]);
+        }
+
+        // References ni HTML ga qo'shish (Puppeteer buni o'zi flow qiladi)
+        if (!empty($article->references)) {
+            $articleHtml .= '<div class="references-section">';
+            $articleHtml .= '<h3 class="references-title">FOYDALANILGAN ADABIYOTLAR:</h3>';
+            $rawRefs = explode("\n", $article->references);
+            foreach ($rawRefs as $ref) {
+                $ref = trim($ref);
+                if (!empty($ref)) {
+                    $articleHtml .= '<p class="reference-item">' . htmlspecialchars($ref) . '</p>';
+                }
+            }
+            $articleHtml .= '</div>';
+        }
+
+        // 3. Puppeteer orqali HTML → PDF (formulalar to'liq render qilinadi)
+        $basePdfFilename = 'docx_base_' . time() . '_' . $article->id . '.pdf';
+        $basePdfRelPath = 'articles/base/' . $basePdfFilename;
+        $basePdfFullPath = Storage::disk('public')->path($basePdfRelPath);
+
+        $directory = dirname($basePdfFullPath);
+        if (!is_dir($directory)) {
+            mkdir($directory, 0755, true);
+        }
+
+        // Pass calculated margins to node
+        $this->renderHtmlToPdfWithPuppeteer(
+            $articleHtml, 
+            $basePdfFullPath, 
+            (string)ceil($firstPageTopMargin) . 'mm', // First page top margin
+            '22mm', // Subsequent pages top margin (running header size is 20mm + 2mm gap)
+            '33mm', // Left margin
+            '15mm', // Right margin
+            '20mm'  // Bottom margin (footer size 17mm + 3mm gap)
+        );
+
+        // 4. Base PDF ni article ga saqlash
+        $article->update(['pdf_path' => $basePdfRelPath]);
+
+        // 5. INCOP dizayn overlay qo'shish (sidebar, header, footer, ranglar)
+        $formattedPath = $this->mergeWithCoverPage($article, $country);
+
+        // Memory tozalash
+        if (function_exists('gc_collect_cycles')) {
+            gc_collect_cycles();
+        }
+
+        return $formattedPath;
+    }
+
+    /**
+     * Puppeteer orqali HTML ni PDF ga render qilish
+     * KaTeX formulalar, jadvallar, rasmlar to'liq saqlanadi
+     */
+    private function renderHtmlToPdfWithPuppeteer(
+        string $html, 
+        string $outputPath,
+        string $topMarginFirst = '20mm',
+        string $topMarginRest = '20mm',
+        string $leftMargin = '20mm',
+        string $rightMargin = '15mm',
+        string $bottomMargin = '20mm'
+    ): void
+    {
+        $scriptPath = base_path('scripts' . DIRECTORY_SEPARATOR . 'docx-to-pdf.cjs');
+
+        if (!file_exists($scriptPath)) {
+            throw new \Exception('docx-to-pdf.cjs skripti topilmadi: ' . $scriptPath);
+        }
+
+        // Node.js yo'lini topish
+        $nodePath = $this->findNodePath();
+
+        $descriptors = [
+            0 => ['pipe', 'r'],  // stdin
+            1 => ['pipe', 'w'],  // stdout
+            2 => ['pipe', 'w'],  // stderr
+        ];
+
+        // Katta HTML datalarni stdout pipe orqali uzatishda deadlok yuzaga kelmasligi uchun faylga yozamiz
+        $tempHtmlPath = storage_path('app/temp/puppeteer_input_' . uniqid() . '.html');
+        if (!is_dir(dirname($tempHtmlPath))) {
+            mkdir(dirname($tempHtmlPath), 0755, true);
+        }
+        file_put_contents($tempHtmlPath, $html);
+
+        $command = sprintf(
+            '%s %s %s %s %s %s %s %s %s',
+            escapeshellarg($nodePath),
+            escapeshellarg($scriptPath),
+            escapeshellarg($outputPath),
+            escapeshellarg($topMarginFirst),
+            escapeshellarg($topMarginRest),
+            escapeshellarg($leftMargin),
+            escapeshellarg($rightMargin),
+            escapeshellarg($bottomMargin),
+            escapeshellarg($tempHtmlPath) // 8-CHI ARGUMENT
+        );
+
+        $process = proc_open($command, $descriptors, $pipes, base_path());
+
+        if (!is_resource($process)) {
+            @unlink($tempHtmlPath);
+            throw new \Exception('Puppeteer process ochib bo\'lmadi');
+        }
+
+        // Fayldan o'qilayotgani uchun stdin yopiladi
+        fclose($pipes[0]);
+
+        // Natijani o'qish
+        $stdout = stream_get_contents($pipes[1]);
+        fclose($pipes[1]);
+
+        $stderr = stream_get_contents($pipes[2]);
+        fclose($pipes[2]);
+
+        $returnCode = proc_close($process);
+        
+        // Vaqtincha HTML ni o'chiramiz
+        @unlink($tempHtmlPath);
+
+        if ($returnCode !== 0) {
+            Log::error('Puppeteer PDF render xatosi', ['stderr' => $stderr, 'stdout' => $stdout]);
+            throw new \Exception('HTML → PDF render xatosi: ' . ($stderr ?: $stdout));
+        }
+
+        if (!file_exists($outputPath)) {
+            throw new \Exception('Puppeteer PDF fayl yaratmadi: ' . $outputPath);
+        }
+
+        Log::info('Puppeteer PDF yaratildi', ['path' => $outputPath, 'size' => filesize($outputPath)]);
+    }
+
+    /**
+     * Node.js yo'lini topish (DocxProcessorService bilan bir xil)
+     */
+    private function findNodePath(): string
+    {
+        $nodePath = env('NODE_PATH', '');
+        if (!empty($nodePath) && file_exists($nodePath)) {
+            return $nodePath;
+        }
+
+        $possiblePaths = [
+            'C:\\Program Files\\nodejs\\node.exe',
+            'C:\\Program Files (x86)\\nodejs\\node.exe',
+        ];
+
+        foreach ($possiblePaths as $path) {
+            if (file_exists($path)) {
+                return $path;
+            }
+        }
+
+        $output = [];
+        exec('where node 2>&1', $output);
+        if (!empty($output[0]) && file_exists(trim($output[0]))) {
+            return trim($output[0]);
+        }
+
+        return 'node';
+    }
+
+    /**
+     * DomPDF bilan PDF yaratish (fallback — formulalarsiz)
+     */
+    private function generatePdfWithDompdf(string $html, string $fullPath): void
+    {
+        $pdf = Pdf::loadHTML($html);
+        $pdf->setPaper('A4', 'portrait');
+        $pdf->setOption('isHtml5ParserEnabled', true);
+        $pdf->setOption('isRemoteEnabled', true);
+        $pdf->setOption('defaultFont', 'DejaVu Serif');
+        $pdf->setOption('isFontSubsettingEnabled', true);
+        file_put_contents($fullPath, $pdf->output());
     }
 
     /**
@@ -235,8 +447,9 @@ class ArticlePdfService
         // Matn sig'magan qism keyingi sahifada DAVOM etadi.
         // =====================================================
 
-        // Asl PDF ning taxminiy marginlari (Word default)
-        $srcTopMargin = 15;
+        // Asl PDF ning taxminiy marginlari (Word default: 25.4mm ≈ 1 inch)
+        // Yuqori marginni oshirish — asl PDF tepasidagi bo'sh joyni o'tkazib yuboradi
+        $srcTopMargin = 25;
         $srcLeftMargin = 15;
         $srcBottomMargin = 15;
         // Asl tarkibning taxminiy o'ng margini ham 15mm deb olamiz
@@ -271,23 +484,12 @@ class ArticlePdfService
 
         $this->drawIncopFooter($pdf, $article, $country, $outputPageCount, 0, $leftMargin);
 
-        // Oxirgi sahifada bo'sh joyni aniqlash uchun pozitsiyani kuzatish
-        $lastPageDrawStartY = null;
-
         while ($currentSourcePageIdx <= $originalPageCount) {
             $templateId = $importedPages[$currentSourcePageIdx];
 
-            // Define "Useful Content" boundaries on Source Page
-            // Oxirgi sahifada pastki bo'sh joyni KESKIN qisqartirish
-            if ($currentSourcePageIdx == $originalPageCount) {
-                // OXIRGI SAHIFA - faqat yuqori 55% ni o'qish
-                // Pastki 130mm o'tkazib yuboriladi (bo'sh joy + sahifa raqami)
-                $sourcePageLimitY = 297 - 130;
-            } else {
-                $sourcePageLimitY = 297 - $srcBottomMargin;
-            }
+            // Oxirgi sahifada ham to'liq matn chizilishi kerak, kesib tashlanmaydi
+            $sourcePageLimitY = 297 - $srcBottomMargin;
 
-            // How much useful content is left on this source page? (in mm)
             $remainingSourceH = $sourcePageLimitY - $currentSourceY;
 
             // If practically empty, skip to next source
@@ -342,17 +544,11 @@ class ArticlePdfService
             $templateH = 297 * $globalScale;
 
             $pdf->StartTransform();
-            // Clip Rect: Only show the calculated slice height
             $pdf->Rect($leftMargin, $currentOutY, $availableWidth, $printH, 'CNZ');
             $pdf->useTemplate($templateId, $templateX, $templateY, $templateW, $templateH);
             $pdf->StopTransform();
 
-            // Oxirgi sahifaning chizish boshlanish pozitsiyasini saqlash
-            if ($currentSourcePageIdx == $originalPageCount && $lastPageDrawStartY === null) {
-                $lastPageDrawStartY = $currentOutY;
-            }
-
-            // Update Cursors
+            // Avvalgi noto'g'ri orqaga qaytish logikasi olib tashlandi.
             $currentOutY += $printH;
             $currentSourceY += $advanceSourceMm;
 
@@ -384,32 +580,8 @@ class ArticlePdfService
         }
 
         // =====================================================
-        // 2. FOYDALANILGAN ADABIYOTLAR (Inline - asosiy matn tagida davom etadi)
-        //    MUHIM: Oxirgi sahifadagi bo'sh joyni OQ TO'RTBURCHAK bilan yopish
-        //    va adabiyotlarni matn tugagan joydan boshlash
+        // 2. FOYDALANILGAN ADABIYOTLAR (Inline - matn tagida davom etadi)
         // =====================================================
-
-        // Oxirgi sahifadan qolgan bo'sh joyni tozalash
-        // Asl PDF dan import qilingan templatening bo'sh joyi oq rangda,
-        // shuning uchun uning ustidan oq rect chizib, references ni
-        // matn tugagan joyga yaqinroq joylashtirish mumkin
-        if ($lastPageDrawStartY !== null && $currentOutY > $lastPageDrawStartY) {
-            $drawnFromLastPage = $currentOutY - $lastPageDrawStartY;
-            // Bo'sh joyni taxminan 55% deb hisoblaymiz (oxirgi sahifada
-            // odatda matn sahifaning yarmi yoki undan kamroq qismini egallaydi)
-            $estimatedWhitespace = $drawnFromLastPage * 0.55;
-            $pullback = min($estimatedWhitespace, 80); // Maksimum 80mm orqaga
-            $pullback = max($pullback, 0);
-
-            if ($pullback > 5) {
-                // Oq to'rtburchak bilan bo'sh joyni yopish
-                $newY = $currentOutY - $pullback;
-                $pdf->SetFillColor(255, 255, 255);
-                $pdf->Rect($leftMargin, $newY, $availableWidth, $pullback + 5, 'F');
-                $currentOutY = $newY;
-            }
-        }
-
         if (!empty($referencesLines)) {
             // Joriy sahifada qolgan joyni tekshirish
             $spaceLeft = $outBottomLimit - $currentOutY;
@@ -428,7 +600,7 @@ class ArticlePdfService
             // Sarlavha - MARKAZDA, Bold, Italic (rasmga mos)
             $pdf->SetY($currentOutY);
             $pdf->SetX($leftMargin);
-            $pdf->SetFont('times', 'BI', 11);
+            $pdf->SetFont('times', 'BI', 12);
             $pdf->SetTextColor(0, 0, 0);
             $pdf->Cell($availableWidth, 5, 'FOYDALANILGAN ADABIYOTLAR:', 0, 1, 'C');
             $currentOutY = $pdf->GetY() + 1;
@@ -436,7 +608,7 @@ class ArticlePdfService
             // Har bir references qatorni chizish
             foreach ($referencesLines as $refLine) {
                 // Bu qator uchun kerakli balandlikni hisoblash
-                $pdf->SetFont('times', '', 10);
+                $pdf->SetFont('times', '', 12);
                 $lineHeight = $pdf->getStringHeight($availableWidth, $refLine);
 
                 // Sahifada joy borligini tekshirish
@@ -451,12 +623,12 @@ class ArticlePdfService
                     $outBottomLimit = 280;
                 }
 
-                // References qatorni yozish - Times 10pt, justified
+                // References qatorni yozish - Times 12pt (asosiy matn bilan bir xil)
                 $pdf->SetY($currentOutY);
                 $pdf->SetX($leftMargin);
-                $pdf->SetFont('times', '', 10);
+                $pdf->SetFont('times', '', 12);
                 $pdf->SetTextColor(0, 0, 0);
-                $pdf->MultiCell($availableWidth, 4, $refLine, 0, 'J');
+                $pdf->MultiCell($availableWidth, 5, $refLine, 0, 'J');
                 $currentOutY = $pdf->GetY() + 0.3;
             }
         }
@@ -479,6 +651,147 @@ class ArticlePdfService
         unset($pdf);
         if (function_exists('gc_collect_cycles')) {
             gc_collect_cycles(); // Garbage collection
+        }
+
+        // Sahifa sonini yangilash
+        $article->update(['page_count' => $outputPageCount]);
+
+        return $path;
+    }
+
+    /**
+     * Cover Page + Content Stream + References
+     * 
+     * Layout:
+     * Sahifa 1 yuqori: Header (konferensiya, sarlavha, muallif, annotatsiya, kalit so'zlar)
+     * Sahifa 1 pastki: Maqola matni shu yerdan boshlanadi
+     * Sahifalar 2..N: Maqola matni davom etadi (sidebar bilan)
+     * Oxirgi: Foydalanilgan adabiyotlar
+     */
+    public function mergeWithCoverPage(Article $article, Country $country): string
+    {
+        // Maximum resources
+        set_time_limit(0);
+        ini_set('memory_limit', '-1');
+        ini_set('max_execution_time', '0');
+
+        $article->load(['conference']);
+        $conference = $article->conference;
+
+        // Asl PDF yo'lini olish
+        $basePdfPath = Storage::disk('public')->path($article->pdf_path);
+
+        if (!file_exists($basePdfPath)) {
+            throw new \Exception('Asl PDF fayl topilmadi: ' . $article->pdf_path);
+        }
+
+        // ========================================
+        // Rasmlarni optimizatsiya qilish
+        // ========================================
+        $headerImgPath = $this->getOptimizedImagePath(public_path('images/logo.png'), 150);
+        $logoPath = $this->getOptimizedImagePath(public_path('images/logo.png'), 250);
+
+        // Adabiyotlar endi DOCX ichidan to'g'ridan to'g'ri o'qiladi yoki shablon oxirida qoldiriladi.
+        // Hozirgi $article->references array ini alohida append qilish uchun tayyorlash:
+        $referencesLines = [];
+        if (!empty($article->references)) {
+            $rawRefs = explode("\n", $article->references);
+            foreach ($rawRefs as $ref) {
+                $ref = trim($ref);
+                if (!empty($ref)) {
+                    $referencesLines[] = $ref;
+                }
+            }
+        }
+
+        // ========================================
+        // FPDI yaratish va asl PDF ni import qilish
+        // ========================================
+        $pdf = new Fpdi('P', 'mm', 'A4');
+        $pdf->SetCompression(true);
+        $pdf->setFontSubsetting(false);
+        $pdf->setJPEGQuality(15);
+        $pdf->setImageScale(1.53);
+
+        $pdf->SetCreator('Artiqle - International Scientific Conferences');
+        $pdf->SetAuthor($article->author_name ?? 'Unknown Author');
+        $pdf->SetTitle($article->title);
+        $pdf->SetAutoPageBreak(false);
+        $pdf->setPrintHeader(false);
+        $pdf->setPrintFooter(false);
+        $pdf->SetMargins(0, 0, 0);
+
+        // Asl PDF ni import qilish
+        try {
+            $originalPageCount = $pdf->setSourceFile($basePdfPath);
+        } catch (\Exception $e) {
+            throw new \Exception('PDF faylni o\'qishda xatolik: ' . $e->getMessage());
+        }
+
+        // Barcha sahifalarni oldindan import qilish
+        $importedPages = [];
+        for ($i = 1; $i <= $originalPageCount; $i++) {
+            $importedPages[$i] = $pdf->importPage($i);
+        }
+
+        // =====================================================
+        // LAYOUT PARAMETRLARI
+        // =====================================================
+        $sidebarWidth = 28;
+        $leftMargin = $sidebarWidth + 5; // 33mm
+        $rightMargin = 15;
+        $contentWidth = 210 - $leftMargin - $rightMargin; 
+
+        // =====================================================
+        // 1-SAHIFA: MAQOLA MATNI + HEADER
+        // =====================================================
+        $pdf->AddPage();
+        $outputPageCount = 1;
+
+        // Puppeteer generatsiya qilgan base PDF da birinchi sahifada tepadagi header
+        // hududi oq bo'shliq qilib ajratilgan, shuning uchun avval shuni bostiramiz.
+        $pdf->useTemplate($importedPages[1], 0, 0, 210, 297);
+
+        $this->drawIncopSidebar($pdf, $sidebarWidth, $headerImgPath, $logoPath);
+        $this->drawIncopHeader($pdf, $article, $country, $conference, $leftMargin);
+        $this->drawIncopFooter($pdf, $article, $country, $outputPageCount, 0, $leftMargin);
+
+        // =====================================================
+        // QOLGAN SAHIFALAR: Matn davom etadi + Running header
+        // =====================================================
+        for ($i = 2; $i <= $originalPageCount; $i++) {
+            $pdf->AddPage();
+            $outputPageCount++;
+            
+            // Base PDF dan shunchaki sahifani overlay qilamiz (marginlari tayyor)
+            $pdf->useTemplate($importedPages[$i], 0, 0, 210, 297);
+
+            $this->drawIncopSidebar($pdf, $sidebarWidth, $headerImgPath, $logoPath);
+            $this->drawIncopRunningHeader($pdf, $article, $conference, $leftMargin);
+            $this->drawIncopFooter($pdf, $article, $country, $outputPageCount, 0, $leftMargin);
+        }
+
+        // Note: Foydalanilgan adabiyotlar endi HTML tarkibida keladi va Puppeteer tomonidan flow qilinadi.
+        // PHP orqali manual chizish olib tashlandi.
+
+        // =====================================================
+        // SAQLASH
+        // =====================================================
+        $filename = 'formatted_' . time() . '_' . $article->id . '.pdf';
+        $path = 'articles/formatted/' . $filename;
+        $fullPath = Storage::disk('public')->path($path);
+
+        $directory = dirname($fullPath);
+        if (!is_dir($directory)) {
+            mkdir($directory, 0755, true);
+        }
+
+        $pdf->Output($fullPath, 'F');
+
+        // Memory tozalash
+        unset($pdf);
+        if (function_exists('gc_collect_cycles')) {
+            gc_collect_cycles();
         }
 
         // Sahifa sonini yangilash
@@ -618,6 +931,61 @@ class ArticlePdfService
     }
 
     /**
+     * Helper to calculate the exact header height before drawing
+     */
+    private function calculateHeaderHeight(Article $article, Country $country, Conference $conference, float $contentWidth): float
+    {
+        // Minimal PDF instance for measuring text
+        $pdf = new Fpdi('P', 'mm', 'A4');
+        $pdf->AddPage();
+        
+        $currentY = 15; // Starting Y
+
+        // 1. Conference Name
+        $pdf->SetFont('helvetica', 'B', 9);
+        $currentY += 5; // Cell height
+
+        // 2. Subtitle
+        $pdf->SetFont('helvetica', '', 7);
+        $currentY += 4; // Cell height
+
+        // 3. Separator line
+        $currentY += 1; // Gap
+        $currentY += 4; // Padding
+
+        // 4. Info Block heights
+        $titleObj = strtoupper($article->title);
+        $authorObj = $article->author_name;
+        $affiliationObj = $article->author_affiliation ?? '';
+        $abstractObj = strip_tags($article->abstract);
+        $keywordsObj = strip_tags($article->keywords);
+
+        $pdf->SetFont('times', 'B', 14);
+        $titleH = $pdf->getStringHeight($contentWidth, $titleObj);
+
+        $pdf->SetFont('times', 'B', 12);
+        $authorH = $pdf->getStringHeight($contentWidth, $authorObj);
+
+        $pdf->SetFont('times', 'I', 10);
+        $affiliationH = empty($affiliationObj) ? 0 : $pdf->getStringHeight($contentWidth, $affiliationObj);
+
+        $pdf->SetFont('times', '', 11);
+        $abstractH = empty($abstractObj) ? 0 : $pdf->getStringHeight($contentWidth - 6, "Annotatsiya: " . $abstractObj) + 4;
+
+        $pdf->SetFont('times', 'I', 11);
+        $keywordsH = empty($keywordsObj) ? 0 : $pdf->getStringHeight($contentWidth - 6, "Kalit so'zlar: " . $keywordsObj) + 4;
+
+        $padding = 5;
+        $gap = 3;
+        $totalBlockHeight = $titleH + $gap + $authorH + ($affiliationH ? 1 + $affiliationH : 0) + $gap 
+                            + ($abstractH ? $abstractH + $gap + 2 : 0) 
+                            + ($keywordsH ? $keywordsH + $gap + 2 : 0) 
+                            + $padding * 2;
+
+        return $currentY + $totalBlockHeight;
+    }
+
+    /**
      * INCOP Header chizish (Rasmga mos)
      * @return float Header balandligi
      */
@@ -678,7 +1046,25 @@ class ArticlePdfService
         // Davlat bayroq ranglariga asoslangan orqa fon
 
         $titleObj = strtoupper($article->title);
-        $authorObj = $article->author_name;
+
+        $authorsListObj = [];
+        $mainAuthor = mb_convert_case(trim($article->author_display_name), MB_CASE_TITLE, 'UTF-8');
+        if (!empty($mainAuthor)) {
+            $authorsListObj[] = $mainAuthor;
+        }
+
+        if (!empty($article->co_authors)) {
+            $coAuthorsRaw = explode("\n", trim($article->co_authors));
+            foreach ($coAuthorsRaw as $ca) {
+                $nameParts = explode(',', $ca);
+                $caName = mb_convert_case(trim($nameParts[0]), MB_CASE_TITLE, 'UTF-8');
+                if (!empty($caName)) {
+                    $authorsListObj[] = $caName;
+                }
+            }
+        }
+        $authorObj = implode(', ', $authorsListObj);
+
         $affiliationObj = $article->author_affiliation ?? '';
         $abstractObj = strip_tags($article->abstract);
         $keywordsObj = strip_tags($article->keywords);
@@ -807,9 +1193,9 @@ class ArticlePdfService
         $contentWidth = $pageWidth - $leftMargin - 15;
 
         // Running header uchun oq fon maskasi
-        // contentStartY (25mm) dan 1mm pastda tugaydi = 26mm
+        // contentStartOnContinuation (20mm) ga mos ravishda
         $pdf->SetFillColor(255, 255, 255);
-        $pdf->Rect($leftMargin, 0, $pageWidth - $leftMargin, 26, 'F');
+        $pdf->Rect($leftMargin, 0, $pageWidth - $leftMargin, 20, 'F');
 
         $currentY = 8;
         $pdf->SetY($currentY);
@@ -870,13 +1256,13 @@ class ArticlePdfService
         $pdf->Rect(0, $pageHeight - 1.5, $pageWidth, 1.5, 'F');
 
         // Sahifa raqami (markazda, pastda)
-        $pdf->SetFont('dejavusans', 'B', 8);
+        $pdf->SetFont('helvetica', 'B', 8);
         $pdf->SetTextColor($rgb['r'], $rgb['g'], $rgb['b']);
         $pdf->SetXY(0, $pageHeight - 6);
         $pdf->Cell($pageWidth, 4, $pageNo . ' / ' . $totalPages, 0, 0, 'C');
 
         // Website (o'ng pastda)
-        $pdf->SetFont('dejavusans', '', 5);
+        $pdf->SetFont('helvetica', '', 5);
         $pdf->SetTextColor(100, 100, 100);
         $pdf->SetXY($pageWidth - 55, $pageHeight - 6);
         $pdf->Cell(50, 4, 'internationalscientificconferences.org', 0, 0, 'R');
@@ -894,7 +1280,7 @@ class ArticlePdfService
         $pdf->Rect(0, 0, 8, $size['height'], 'F');
 
         // Vertikal matn (pastdan yuqoriga) - INTERNATIONALSCIENTIFICCONFERENCES
-        $pdf->SetFont('dejavusans', 'B', 6);
+        $pdf->SetFont('helvetica', 'B', 6);
         $pdf->SetTextColor(255, 255, 255); // Oq rang
 
         // Matnni vertikal yozish
@@ -917,7 +1303,7 @@ class ArticlePdfService
         $pdf->Rect(0, 0, $size['width'], 4, 'F');
 
         // Konferensiya nomi (kichik, o'ng tomonda)
-        $pdf->SetFont('dejavusans', '', 6);
+        $pdf->SetFont('helvetica', '', 6);
         $pdf->SetTextColor(100, 100, 100);
         $conferenceName = $country->conference_name ?? 'INTERNATIONAL SCIENTIFIC CONFERENCE';
         $pdf->SetXY($size['width'] - 100, 5);
@@ -942,24 +1328,24 @@ class ArticlePdfService
         $pdf->Line(10, $size['height'] - 8, $size['width'] - 10, $size['height'] - 8);
 
         // Chap: Davlat va sana
-        $pdf->SetFont('dejavusans', '', 7);
+        $pdf->SetFont('helvetica', '', 7);
         $pdf->SetTextColor(100, 100, 100);
         $pdf->SetXY(10, $size['height'] - 7);
         $dateStr = $conference->conference_date ? $conference->conference_date->format('d.m.Y') : date('d.m.Y');
         $pdf->Cell(50, 4, ($country->name_en ?? $country->name) . ' | ' . $dateStr, 0, 0, 'L');
 
         // O'rta: Sahifa raqami
-        $pdf->SetFont('dejavusans', 'B', 9);
+        $pdf->SetFont('helvetica', 'B', 9);
         $pdf->SetTextColor($rgb['r'], $rgb['g'], $rgb['b']);
         $pdf->SetXY(0, $size['height'] - 7);
         $pdf->Cell($size['width'], 4, $pageNo, 0, 0, 'C');
 
         // O'ng: Sahifalar diapazoni va website
-        $pdf->SetFont('dejavusans', '', 6);
+        $pdf->SetFont('helvetica', '', 6);
         $pdf->SetTextColor(100, 100, 100);
         $pdf->SetXY($size['width'] - 80, $size['height'] - 7);
         $pageRange = $article->page_range ?? $pageNo;
-        $pdf->Cell(70, 4, 'pp. ' . $pageRange . ' | internationalscientificconferences.org', 0, 0, 'R');
+            $pdf->Cell(70, 4, 'pp. ' . $pageRange . ' | internationalscientificconferences.org', 0, 0, 'R');
     }
 
     /**
@@ -972,138 +1358,102 @@ class ArticlePdfService
             return $content;
         }
 
-        // [formula] placeholder larni chiroyli box ichida ko'rsatish
-        $formulaCounter = 0;
-        $content = preg_replace_callback(
-            '/\[formula\]/i',
-            function ($matches) use (&$formulaCounter) {
-                $formulaCounter++;
-                return '<div class="formula-box"><em>[Formula ' . $formulaCounter . ']</em></div>';
-            },
-            $content
-        );
+        // HTML taglarini ajratib olamiz, toki img src="..." ichidagi base64 kodlar buzilmasin
+        $parts = preg_split('/(<[^>]*>)/', $content, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
+        $resultHtml = '';
 
-        // Matematik ifodalar uchun maxsus formatlar:
+        foreach ($parts as $part) {
+            if (str_starts_with($part, '<')) {
+                $resultHtml .= $part;
+            } else {
+                // [formula] placeholder larni chiroyli box ichida ko'rsatish
+                $formulaCounter = 0;
+                $part = preg_replace_callback(
+                    '/\[formula\]/i',
+                    function ($matches) use (&$formulaCounter) {
+                        $formulaCounter++;
+                        return '<div class="formula-box"><em>[Formula ' . $formulaCounter . ']</em></div>';
+                    },
+                    $part
+                );
 
-        // 1. Kasrlar: a/b -> a÷b yoki (a)/(b)
-        // Oddiy kasr: 1/2, 3/4 kabi
-        $content = preg_replace('/\b(\d+)\/(\d+)\b/', '$1÷$2', $content);
+                // Matematik ifodalar uchun maxsus formatlar:
+                
+                // 1. Kasrlar: a/b -> a÷b yoki (a)/(b)
+                $part = preg_replace('/\b(\d+)\/(\d+)\b/', '$1÷$2', $part);
 
-        // 2. Daraja: x^2, x^n, 10^6
-        $content = preg_replace_callback(
-            '/(\w+)\^(\d+|\{[^}]+\})/',
-            function ($matches) {
-                $base = $matches[1];
-                $exp = trim($matches[2], '{}');
-                $superscripts = ['0' => '⁰', '1' => '¹', '2' => '²', '3' => '³', '4' => '⁴', '5' => '⁵', '6' => '⁶', '7' => '⁷', '8' => '⁸', '9' => '⁹'];
-                $result = '';
-                foreach (str_split($exp) as $char) {
-                    $result .= $superscripts[$char] ?? $char;
+                // 2. Daraja: x^2, x^n, 10^6
+                $part = preg_replace_callback(
+                    '/(\w+)\^(\d+|\{[^}]+\})/',
+                    function ($matches) {
+                        $base = $matches[1];
+                        $exp = trim($matches[2], '{}');
+                        $superscripts = ['0' => '⁰', '1' => '¹', '2' => '²', '3' => '³', '4' => '⁴', '5' => '⁵', '6' => '⁶', '7' => '⁷', '8' => '⁸', '9' => '⁹'];
+                        $result = '';
+                        foreach (str_split($exp) as $char) {
+                            $result .= $superscripts[$char] ?? $char;
+                        }
+                        return $base . $result;
+                    },
+                    $part
+                );
+
+                // 3. Indeks: x_1, x_n, a_i
+                $part = preg_replace_callback(
+                    '/(\w+)_(\d+|\{[^}]+\})/',
+                    function ($matches) {
+                        $base = $matches[1];
+                        $sub = trim($matches[2], '{}');
+                        return $base . '<sub>' . $sub . '</sub>';
+                    },
+                    $part
+                );
+
+                // 4. Kimyoviy formulalar: H2O, CO2, NaCl, CaCO3
+                $part = preg_replace_callback(
+                    '/\b([A-Z][a-z]?)(\d+)(?=[A-Z]|\s|,|\.|\)|$)/u',
+                    function ($matches) {
+                        return $matches[1] . '<sub>' . $matches[2] . '</sub>';
+                    },
+                    $part
+                );
+
+                // 5. Matematik belgilar - oddiy matnda
+                $mathReplacements = [
+                    '+-' => '±', '->' => '→', '<-' => '←', '<=' => '≤', '>=' => '≥',
+                    '!=' => '≠', '~=' => '≈', '==' => '≡', '<<' => '≪', '>>' => '≫',
+                    'sqrt' => '√', 'infinity' => '∞', 'approx' => '≈', 'prop' => '∝',
+                    'empty' => '∅', 'angle' => '∠',
+                    'alpha' => 'α', 'beta' => 'β', 'gamma' => 'γ', 'delta' => 'δ',
+                    'epsilon' => 'ε', 'theta' => 'θ', 'lambda' => 'λ', 'mu' => 'μ',
+                    'pi' => 'π', 'sigma' => 'σ', 'tau' => 'τ', 'phi' => 'φ',
+                    'omega' => 'ω', 'Delta' => 'Δ', 'Sigma' => 'Σ', 'Omega' => 'Ω',
+                ];
+
+                foreach ($mathReplacements as $search => $replace) {
+                    $part = preg_replace('/\b' . preg_quote($search, '/') . '\b/', $replace, $part);
                 }
-                return $base . $result;
-            },
-            $content
-        );
 
-        // 3. Indeks: x_1, x_n, a_i
-        $content = preg_replace_callback(
-            '/(\w+)_(\d+|\{[^}]+\})/',
-            function ($matches) {
-                $base = $matches[1];
-                $sub = trim($matches[2], '{}');
-                return $base . '<sub>' . $sub . '</sub>';
-            },
-            $content
-        );
+                $specialOps = ['+-', '->', '<-', '<=', '>=', '!=', '~=', '==', '<<', '>>'];
+                foreach ($specialOps as $op) {
+                    $part = str_replace($op, $mathReplacements[$op], $part);
+                }
 
-        // 4. Kimyoviy formulalar: H2O, CO2, NaCl, CaCO3
-        // Element + raqam formatini topish
-        $content = preg_replace_callback(
-            '/\b([A-Z][a-z]?)(\d+)(?=[A-Z]|\s|,|\.|\)|$)/u',
-            function ($matches) {
-                return $matches[1] . '<sub>' . $matches[2] . '</sub>';
-            },
-            $content
-        );
+                // 6. Fizik kattaliklar va o'lchov birliklari
+                $units = [
+                    'm/s' => 'm/s', 'm/s^2' => 'm/s²', 'kg/m^3' => 'kg/m³',
+                    'J/mol' => 'J/mol', 'kJ/mol' => 'kJ/mol',
+                ];
 
-        // 5. Matematik belgilar - oddiy matnda
-        $mathReplacements = [
-            // Operatorlar
-            '+-' => '±',
-            '->' => '→',
-            '<-' => '←',
-            '<=' => '≤',
-            '>=' => '≥',
-            '!=' => '≠',
-            '~=' => '≈',
-            '==' => '≡',
-            '<<' => '≪',
-            '>>' => '≫',
+                foreach ($units as $search => $replace) {
+                    $part = str_replace($search, $replace, $part);
+                }
 
-            // Maxsus belgilar
-            'sqrt' => '√',
-            'cbrt' => '∛',
-            'infinity' => '∞',
-            'inf' => '∞',
-            'sum' => '∑',
-            'prod' => '∏',
-            'integral' => '∫',
-
-            // Grek harflari
-            'alpha' => 'α',
-            'beta' => 'β',
-            'gamma' => 'γ',
-            'Gamma' => 'Γ',
-            'delta' => 'δ',
-            'Delta' => 'Δ',
-            'epsilon' => 'ε',
-            'zeta' => 'ζ',
-            'eta' => 'η',
-            'theta' => 'θ',
-            'Theta' => 'Θ',
-            'iota' => 'ι',
-            'kappa' => 'κ',
-            'lambda' => 'λ',
-            'Lambda' => 'Λ',
-            'mu' => 'μ',
-            'nu' => 'ν',
-            'xi' => 'ξ',
-            'Xi' => 'Ξ',
-            'pi' => 'π',
-            'Pi' => 'Π',
-            'rho' => 'ρ',
-            'sigma' => 'σ',
-            'Sigma' => 'Σ',
-            'tau' => 'τ',
-            'upsilon' => 'υ',
-            'phi' => 'φ',
-            'Phi' => 'Φ',
-            'chi' => 'χ',
-            'psi' => 'ψ',
-            'Psi' => 'Ψ',
-            'omega' => 'ω',
-            'Omega' => 'Ω',
-        ];
-
-        foreach ($mathReplacements as $search => $replace) {
-            // Faqat so'z sifatida almashtirish (boshqa so'zlar ichida emas)
-            $content = preg_replace('/\b' . preg_quote($search, '/') . '\b/', $replace, $content);
+                $resultHtml .= $part;
+            }
         }
 
-        // 6. Fizika birliklari
-        $units = [
-            'm/s' => 'm/s',
-            'm/s^2' => 'm/s²',
-            'kg/m^3' => 'kg/m³',
-            'J/mol' => 'J/mol',
-            'kJ/mol' => 'kJ/mol',
-        ];
-
-        foreach ($units as $search => $replace) {
-            $content = str_replace($search, $replace, $content);
-        }
-
-        return $content;
+        return $resultHtml;
     }
 
     /**
@@ -1316,13 +1666,13 @@ class ArticlePdfService
         $pdf->Line(10, 15, 200, 15);
 
         // Chap tomonda ISOC va davlat
-        $pdf->SetFont('dejavusans', 'B', 8);
+        $pdf->SetFont('helvetica', 'B', 8);
         $pdf->SetTextColor($rgb['r'], $rgb['g'], $rgb['b']);
         $pdf->SetXY(10, 8);
         $pdf->Cell(80, 5, 'ARTIQLE | ' . strtoupper($country->name_en ?? $country->name), 0, 0, 'L');
 
         // O'ng tomonda konferensiya nomi
-        $pdf->SetFont('dejavusans', '', 7);
+        $pdf->SetFont('helvetica', '', 7);
         $pdf->SetTextColor(100, 100, 100);
         $pdf->SetXY(100, 8);
         $conferenceName = $country->conference_name ?? $article->conference->title ?? 'International Conference';
@@ -1358,7 +1708,7 @@ class ArticlePdfService
         $pdf->SetFillColor($rgb['r'], $rgb['g'], $rgb['b']);
         $pdf->Rect(0, 292, 210, 5, 'F');
 
-        $pdf->SetFont('dejavusans', '', 8);
+        $pdf->SetFont('helvetica', '', 8);
 
         // Chap tomonda - davlat va sana
         $pdf->SetTextColor(100, 100, 100);
@@ -1367,12 +1717,12 @@ class ArticlePdfService
 
         // O'rtada sahifa raqami - davlat rangida
         $pdf->SetTextColor($rgb['r'], $rgb['g'], $rgb['b']);
-        $pdf->SetFont('dejavusans', 'B', 10);
+        $pdf->SetFont('helvetica', 'B', 10);
         $pdf->SetXY(85, 282);
         $pdf->Cell(40, 7, $article->page_range, 0, 0, 'C');
 
         // O'ng tomonda website
-        $pdf->SetFont('dejavusans', '', 8);
+        $pdf->SetFont('helvetica', '', 8);
         $pdf->SetTextColor(100, 100, 100);
         $pdf->SetXY(140, 283);
         $pdf->Cell(60, 5, 'www.artiqle.uz', 0, 0, 'R');
@@ -1633,13 +1983,49 @@ class ArticlePdfService
         $conference->load([
             'country',
             'articles' => function ($q) {
-                $q->where('status', 'published')->orderBy('order_number');
+                $q->where('status', 'published')->orderBy('id');
             }
         ]);
+
+        // 0. Maqolalarning sahifalarini hisoblash va ma'lumotlar bazasini yangilash
+        $tempPdf = new Fpdi();
+        $startPage = 1;
+        $orderCounter = 1;
+
+        foreach ($conference->articles as $article) {
+            $articlePdfPath = $article->formatted_pdf_path
+                ? Storage::disk('public')->path($article->formatted_pdf_path)
+                : Storage::disk('public')->path($article->pdf_path);
+
+            if (file_exists($articlePdfPath)) {
+                try {
+                    $pageCount = $tempPdf->setSourceFile($articlePdfPath);
+                    if ($pageCount > 0) {
+                        $endPage = $startPage + $pageCount - 1;
+                        
+                        // Ma'lumotlarni xotirada va bazada yangilaymiz
+                        if ($article->order_number != $orderCounter || $article->page_range !== "$startPage-$endPage") {
+                            $article->order_number = $orderCounter;
+                            $article->page_range = "$startPage-$endPage";
+                            $article->save();
+                        }
+                        
+                        $startPage = $endPage + 1;
+                        $orderCounter++;
+                    }
+                } catch (\Exception $e) {
+                    \Log::warning("Sahifa hisoblash xatoligi (Article ID: {$article->id}): " . $e->getMessage());
+                }
+            }
+        }
 
         $pdf = new Fpdi('P', 'mm', 'A4');
         $pdf->SetCreator('ISOC - International Scientific Online Conference');
         $pdf->SetTitle($conference->title . ' - Collection');
+        $pdf->SetAutoPageBreak(false);
+        $pdf->setPrintHeader(false);
+        $pdf->setPrintFooter(false);
+        $pdf->SetMargins(0, 0, 0);
 
         // 1. Muqova sahifasi
         $coverPath = $this->generateCollectionCover($conference);
@@ -1650,18 +2036,23 @@ class ArticlePdfService
             $pdf->useTemplate($tplId, 0, 0, 210, 297);
         }
 
-        // 2. Mundarija sahifasi
-        $tocPath = $this->generateTableOfContents($conference);
-        if (file_exists($tocPath)) {
-            $pdf->setSourceFile($tocPath);
-            $pageCount = $pdf->setSourceFile($tocPath);
-            for ($i = 1; $i <= $pageCount; $i++) {
-                $tplId = $pdf->importPage($i);
-                $pdf->AddPage();
-                $pdf->useTemplate($tplId, 0, 0, 210, 297);
-            }
+        // 1.5. Info sahifasi (2-sahifa)
+        $infoPath = $this->generateCollectionInfoPage($conference, $startPage - 1);
+        if (file_exists($infoPath)) {
+            $pdf->setSourceFile($infoPath);
+            $tplId = $pdf->importPage(1);
+            $pdf->AddPage();
+            $pdf->useTemplate($tplId, 0, 0, 210, 297);
+
+            // Dizayn (overlay) ni qo'llash
+            $headerImgPath = $this->getOptimizedImagePath(public_path('images/logo.png'), 150);
+            $logoPath = $this->getOptimizedImagePath(public_path('images/logo.png'), 250);
+            $this->drawIncopSidebar($pdf, 28, $headerImgPath, $logoPath);
+            $this->drawIncopRunningHeader($pdf, null, $conference, 33);
+            $this->drawIncopFooter($pdf, null, $conference->country, 2, 0, 33);
         }
 
+        // 2. Mundarija sahifasi oxirida bo'ladi, shuning o'rnini o'zgartiramiz
         // 3. Har bir maqolani qo'shish
         $currentPage = 1;
         foreach ($conference->articles as $article) {
@@ -1681,6 +2072,18 @@ class ArticlePdfService
             }
         }
 
+        // 4. Mundarija sahifasi (Oxirida qo'shiladi)
+        $tocPath = $this->generateTableOfContents($conference);
+        if (file_exists($tocPath)) {
+            $pdf->setSourceFile($tocPath);
+            $pageCount = $pdf->setSourceFile($tocPath);
+            for ($i = 1; $i <= $pageCount; $i++) {
+                $tplId = $pdf->importPage($i);
+                $pdf->AddPage();
+                $pdf->useTemplate($tplId, 0, 0, 210, 297);
+            }
+        }
+
         // Saqlash
         $filename = 'collection_' . $conference->country->code . '_' . $conference->month_year . '.pdf';
         $path = 'collections/' . $filename;
@@ -1696,6 +2099,62 @@ class ArticlePdfService
         return $path;
     }
 
+    private function renderSimpleHtmlToPdf(string $html, string $outputPath, string $top = '0', string $bottom = '0', string $left = '0', string $right = '0'): void
+    {
+        try {
+            $scriptPath = base_path('scripts' . DIRECTORY_SEPARATOR . 'html-to-pdf.cjs');
+            $nodePath = $this->findNodePath();
+
+            $descriptors = [
+                0 => ['pipe', 'r'],
+                1 => ['pipe', 'w'],
+                2 => ['pipe', 'w'],
+            ];
+
+            $command = sprintf(
+                '%s %s %s %s %s %s %s',
+                escapeshellarg($nodePath),
+                escapeshellarg($scriptPath),
+                escapeshellarg($outputPath),
+                escapeshellarg($top),
+                escapeshellarg($bottom),
+                escapeshellarg($left),
+                escapeshellarg($right)
+            );
+
+            $process = proc_open($command, $descriptors, $pipes, base_path());
+
+            if (is_resource($process)) {
+                fwrite($pipes[0], $html);
+                fclose($pipes[0]);
+
+                $stdout = stream_get_contents($pipes[1]);
+                fclose($pipes[1]);
+
+                $stderr = stream_get_contents($pipes[2]);
+                fclose($pipes[2]);
+
+                $status = proc_close($process);
+
+                if ($status === 0 && file_exists($outputPath) && filesize($outputPath) > 0) {
+                    \Log::info("Puppeteer muvaffaqiyatli PDF yaratdi (simple): {$outputPath}");
+                    return;
+                }
+                
+                \Log::error("Puppeteer simple failed", ['status' => $status, 'error' => $stderr, 'stdout' => $stdout]);
+            }
+        } catch (\Exception $e) {
+            \Log::error("Puppeteer simple exception: " . $e->getMessage());
+        }
+
+        // Fallback to DomPDF
+        \Log::info("Fallback to DomPDF for simple html...");
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadHTML($html);
+        $pdf->setPaper('A4', 'portrait');
+        $pdf->setOption('isFontSubsettingEnabled', true);
+        $pdf->save($outputPath);
+    }
+
     /**
      * To'plam muqova sahifasi yaratish
      */
@@ -1703,12 +2162,10 @@ class ArticlePdfService
     {
         $country = $conference->country;
 
-        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.collection-cover', [
+        $html = view('pdf.collection-cover', [
             'conference' => $conference,
             'country' => $country,
-        ]);
-
-        $pdf->setPaper('A4', 'portrait');
+        ])->render();
 
         $filename = 'collection_cover_' . time() . '.pdf';
         $path = storage_path('app/temp/' . $filename);
@@ -1718,7 +2175,33 @@ class ArticlePdfService
             mkdir($directory, 0755, true);
         }
 
-        file_put_contents($path, $pdf->output());
+        $this->renderSimpleHtmlToPdf($html, $path, '0', '0', '0', '0');
+
+        return $path;
+    }
+
+    /**
+     * To'plam haqida ma'lumot sahifasi (2-sahifa)
+     */
+    private function generateCollectionInfoPage(Conference $conference, int $totalPages): string
+    {
+        $country = $conference->country;
+
+        $html = view('pdf.collection-info', [
+            'conference' => $conference,
+            'country' => $country,
+            'totalPages' => $totalPages,
+        ])->render();
+
+        $filename = 'collection_info_' . time() . '.pdf';
+        $path = storage_path('app/temp/' . $filename);
+
+        $directory = dirname($path);
+        if (!is_dir($directory)) {
+            mkdir($directory, 0755, true);
+        }
+
+        $this->renderSimpleHtmlToPdf($html, $path, '0', '0', '0', '0');
 
         return $path;
     }
@@ -1891,13 +2374,11 @@ class ArticlePdfService
      */
     private function generateTableOfContents(Conference $conference): string
     {
-        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.table-of-contents', [
+        $html = view('pdf.table-of-contents', [
             'conference' => $conference,
             'country' => $conference->country,
             'articles' => $conference->articles,
-        ]);
-
-        $pdf->setPaper('A4', 'portrait');
+        ])->render();
 
         $filename = 'toc_' . time() . '.pdf';
         $path = storage_path('app/temp/' . $filename);
@@ -1907,7 +2388,7 @@ class ArticlePdfService
             mkdir($directory, 0755, true);
         }
 
-        file_put_contents($path, $pdf->output());
+        $this->renderSimpleHtmlToPdf($html, $path, '15mm', '15mm', '15mm', '15mm');
 
         return $path;
     }

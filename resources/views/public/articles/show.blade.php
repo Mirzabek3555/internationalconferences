@@ -91,100 +91,100 @@ SCHEMA.ORG STRUCTURED DATA (SEO Boost)
 ============================================ --}}
 @section('structured_data')
     <script type="application/ld+json">
-            {
-                "@context": "https://schema.org",
-                "@type": "ScholarlyArticle",
-                "mainEntityOfPage": {
-                    "@type": "WebPage",
-                    "@id": "{{ route('article.show', $article) }}"
-                },
-                "headline": "{{ $article->title }}",
-                "author": {
-                    "@type": "Person",
-                    "name": "{{ $article->author_name ?? ($article->author ? $article->author->name : '') }}"
-                    @if($article->author_affiliation)
-                        ,"affiliation": {
-                            "@type": "Organization",
-                            "name": "{{ $article->author_affiliation }}"
+                {
+                    "@@context": "https://schema.org",
+                    "@type": "ScholarlyArticle",
+                    "mainEntityOfPage": {
+                        "@type": "WebPage",
+                        "@id": "{{ route('article.show', $article) }}"
+                    },
+                    "headline": "{{ $article->title }}",
+                    "author": {
+                        "@type": "Person",
+                        "name": "{{ $article->author_name ?? ($article->author ? $article->author->name : '') }}"
+                        @if($article->author_affiliation)
+                            ,"affiliation": {
+                                "@type": "Organization",
+                                "name": "{{ $article->author_affiliation }}"
+                            }
+                        @endif
+                        @if($article->author && $article->author->email)
+                            ,"email": "{{ $article->author->email }}"
+                        @endif
+                    },
+                    @if($article->abstract)
+                        "abstract": "{{ addslashes($article->abstract) }}",
+                    @endif
+                    "datePublished": "{{ $article->published_at ? $article->published_at->format('Y-m-d') : $article->created_at->format('Y-m-d') }}",
+                    "dateModified": "{{ $article->updated_at->format('Y-m-d') }}",
+                    "publisher": {
+                        "@type": "Organization",
+                        "name": "International Scientific Online Conference (ISOC)",
+                        "url": "https://artiqle.uz",
+                        "logo": {
+                            "@type": "ImageObject",
+                            "url": "{{ asset('images/logo.png') }}"
+                        }
+                    },
+                    @if($article->keywords)
+                        "keywords": "{{ $article->keywords }}",
+                    @endif
+                    "inLanguage": "en",
+                    "isAccessibleForFree": true,
+                    @if($article->page_range)
+                        "pagination": "{{ $article->page_range }}",
+                    @endif
+                    "isPartOf": {
+                        "@type": "PublicationEvent",
+                        "name": "{{ $article->conference->title }}",
+                        "location": {
+                            "@type": "Place",
+                            "name": "{{ $article->conference->country->name_en ?? $article->conference->country->name }}"
+                        },
+                        "startDate": "{{ $article->conference->conference_date->format('Y-m-d') }}"
+                    }
+                    @if($article->pdf_path)
+                        ,"associatedMedia": {
+                            "@type": "MediaObject",
+                            "contentUrl": "{{ url(Storage::url($article->formatted_pdf_path ?? $article->pdf_path)) }}",
+                            "encodingFormat": "application/pdf"
                         }
                     @endif
-                    @if($article->author && $article->author->email)
-                        ,"email": "{{ $article->author->email }}"
-                    @endif
-                },
-                @if($article->abstract)
-                    "abstract": "{{ addslashes($article->abstract) }}",
-                @endif
-                "datePublished": "{{ $article->published_at ? $article->published_at->format('Y-m-d') : $article->created_at->format('Y-m-d') }}",
-                "dateModified": "{{ $article->updated_at->format('Y-m-d') }}",
-                "publisher": {
-                    "@type": "Organization",
-                    "name": "International Scientific Online Conference (ISOC)",
-                    "url": "https://artiqle.uz",
-                    "logo": {
-                        "@type": "ImageObject",
-                        "url": "{{ asset('images/logo.png') }}"
-                    }
-                },
-                @if($article->keywords)
-                    "keywords": "{{ $article->keywords }}",
-                @endif
-                "inLanguage": "en",
-                "isAccessibleForFree": true,
-                @if($article->page_range)
-                    "pagination": "{{ $article->page_range }}",
-                @endif
-                "isPartOf": {
-                    "@type": "PublicationEvent",
-                    "name": "{{ $article->conference->title }}",
-                    "location": {
-                        "@type": "Place",
-                        "name": "{{ $article->conference->country->name_en ?? $article->conference->country->name }}"
-                    },
-                    "startDate": "{{ $article->conference->conference_date->format('Y-m-d') }}"
                 }
-                @if($article->pdf_path)
-                    ,"associatedMedia": {
-                        "@type": "MediaObject",
-                        "contentUrl": "{{ url(Storage::url($article->formatted_pdf_path ?? $article->pdf_path)) }}",
-                        "encodingFormat": "application/pdf"
-                    }
-                @endif
-            }
-            </script>
+                </script>
 
     <!-- Breadcrumb Structured Data -->
     <script type="application/ld+json">
-            {
-                "@context": "https://schema.org",
-                "@type": "BreadcrumbList",
-                "itemListElement": [
-                    {
-                        "@type": "ListItem",
-                        "position": 1,
-                        "name": "Home",
-                        "item": "{{ route('home') }}"
-                    },
-                    {
-                        "@type": "ListItem",
-                        "position": 2,
-                        "name": "{{ $article->conference->country->name }}",
-                        "item": "{{ route('country.show', $article->conference->country) }}"
-                    },
-                    {
-                        "@type": "ListItem",
-                        "position": 3,
-                        "name": "{{ $article->conference->title }}",
-                        "item": "{{ route('conference.show', $article->conference) }}"
-                    },
-                    {
-                        "@type": "ListItem",
-                        "position": 4,
-                        "name": "{{ $article->title }}"
-                    }
-                ]
-            }
-            </script>
+                {
+                    "@@context": "https://schema.org",
+                    "@type": "BreadcrumbList",
+                    "itemListElement": [
+                        {
+                            "@type": "ListItem",
+                            "position": 1,
+                            "name": "Home",
+                            "item": "{{ route('home') }}"
+                        },
+                        {
+                            "@type": "ListItem",
+                            "position": 2,
+                            "name": "{{ $article->conference->country->name }}",
+                            "item": "{{ route('country.show', $article->conference->country) }}"
+                        },
+                        {
+                            "@type": "ListItem",
+                            "position": 3,
+                            "name": "{{ $article->conference->title }}",
+                            "item": "{{ route('conference.show', $article->conference) }}"
+                        },
+                        {
+                            "@type": "ListItem",
+                            "position": 4,
+                            "name": "{{ $article->title }}"
+                        }
+                    ]
+                }
+                </script>
 @endsection
 
 {{-- ============================================
@@ -358,14 +358,7 @@ MAIN CONTENT
                                         id="copyLinkBtn">
                                         <i class="bi bi-link-45deg me-2"></i>Maqola havolasi
                                     </button>
-                                    @auth
-                                        @if(auth()->user()->role === 'admin' && $article->certificate)
-                                            <a href="{{ Storage::url($article->certificate->pdf_path) }}"
-                                                class="btn btn-success btn-lg" target="_blank">
-                                                <i class="bi bi-award me-2"></i>Download Certificate
-                                            </a>
-                                        @endif
-                                    @endauth
+
                                 </div>
                             </section>
                         </div>
@@ -486,32 +479,7 @@ MAIN CONTENT
                     </div>
                 </div>
 
-                {{-- Certificate (Admin Only) --}}
-                {{-- Certificate (Admin Only) --}}
-                @auth
-                    @if(auth()->user()->role === 'admin' && $article->certificate)
-                        <div class="card mb-4">
-                            <div class="card-header"
-                                style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white;">
-                                <i class="bi bi-award me-1"></i>Certificate (Admin)
-                            </div>
-                            <div class="card-body text-center">
-                                <div class="mb-3">
-                                    <i class="bi bi-award-fill" style="font-size: 4rem; color: var(--accent-orange);"></i>
-                                </div>
-                                <h6 class="mb-2">{{ $article->certificate->certificate_number }}</h6>
-                                <p class="text-muted small mb-3">
-                                    <i class="bi bi-calendar-check me-1"></i>Issued:
-                                    {{ $article->certificate->issue_date->format('M d, Y') }}
-                                </p>
-                                <a href="{{ Storage::url($article->certificate->pdf_path) }}" class="btn btn-warning btn-sm w-100"
-                                    target="_blank">
-                                    <i class="bi bi-download me-1"></i>Download
-                                </a>
-                            </div>
-                        </div>
-                    @endif
-                @endauth
+
                 <!-- Share Buttons -->
                 <div class="card">
                     <div class="card-body">

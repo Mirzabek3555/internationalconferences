@@ -29,16 +29,20 @@
                     </div>
                 </div>
                 <div class="row">
-                    <div class="col-md-4 mb-3">
-                        <label class="form-label">Davlat kodi (3 ta harf)</label>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Davlat kodi</label>
                         <input type="text" class="form-control" name="code" value="{{ old('code') }}" maxlength="3"
                             required>
                     </div>
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-3 mb-3">
                         <label class="form-label">Bayroq</label>
                         <input type="file" class="form-control" name="flag" accept="image/*">
                     </div>
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Taqsimot Tartibi (kun)</label>
+                        <input type="number" class="form-control" name="schedule_order" value="{{ old('schedule_order', 0) }}">
+                    </div>
+                    <div class="col-md-3 mb-3">
                         <label class="form-label">Status</label>
                         <div class="form-check mt-2">
                             <input class="form-check-input" type="checkbox" name="is_active" id="is_active" checked>

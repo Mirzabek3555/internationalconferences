@@ -36,40 +36,22 @@
                             style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
                             <h6 class="mb-3"><i class="bi bi-cloud-upload me-2"></i>Hujjat yuklash</h6>
 
-                            <!-- PDF yuklash - Formulalar saqlanadi -->
-                            <div class="mb-3 p-3 bg-success bg-opacity-10 border border-success rounded">
-                                <label for="pdf_file" class="form-label fw-bold text-success">
-                                    <i class="bi bi-file-earmark-pdf me-1"></i> PDF fayl yuklash (Tavsiya etiladi)
+                            <!-- DOCX yuklash -->
+                            <div class="mb-3 p-3 bg-primary bg-opacity-10 border border-primary rounded">
+                                <label for="docx_file" class="form-label fw-bold text-primary">
+                                    <i class="bi bi-file-earmark-word me-1"></i> DOCX fayl yuklash <span class="text-danger">*</span>
                                 </label>
-                                <input type="file" class="form-control @error('pdf_file') is-invalid @enderror"
-                                    id="pdf_file" name="pdf_file" accept=".pdf">
-                                @error('pdf_file')
+                                <input type="file" class="form-control @error('docx_file') is-invalid @enderror"
+                                    id="docx_file" name="docx_file" accept=".docx,.doc" required>
+                                @error('docx_file')
                                     <div class="invalid-feedback d-block">
                                         <strong>{{ $message }}</strong>
                                     </div>
                                 @enderror
-                                <div class="form-text text-success">
-                                    <i class="bi bi-check-circle me-1"></i><strong>Eng yaxshi variant!</strong>
-                                    Matematik formulalar 100% saqlanadi. PDF kontenti o'zgartirilmaydi, faqat dizayn
-                                    qo'shiladi.
-                                    <br><small class="text-muted">Fayl hajmi: maksimum 20MB | Format: .pdf</small>
-                                </div>
-                            </div>
-
-                            <div class="text-center my-2">
-                                <span class="badge bg-secondary">YOKI</span>
-                            </div>
-
-                            <!-- Matn kiritish -->
-                            <div class="p-3 bg-light border rounded">
-                                <label for="content" class="form-label fw-bold">
-                                    <i class="bi bi-textarea-t me-1"></i> Maqola matni (Text formatda)
-                                </label>
-                                <textarea class="form-control" id="content" name="content" rows="12"
-                                    placeholder="Maqola matnini shu yerga joylashtiring (agar fayl yuklamasangiz)...">{{ old('content') }}</textarea>
-                                <div class="form-text">
-                                    <small class="text-muted">Agar fayl yuklanmasa, matnni shu yerga kiriting. Formulalar
-                                        oddiy matn sifatida ko'rsatiladi.</small>
+                                <div class="form-text text-primary">
+                                    <i class="bi bi-file-word me-1"></i><strong>Maqola matni (Word) faylini yuklang.</strong>
+                                    Tizim undan matn va formulalarni o'qib PDF yaratadi.
+                                    <br><small class="text-muted">Fayl hajmi: maksimum 20MB | Format: .docx, .doc</small>
                                 </div>
                             </div>
                         </div>
@@ -102,17 +84,70 @@
                             <div class="card-body">
                                 <h6 class="card-title">Muallif va Konferensiya</h6>
 
+                                {{-- DAVLAT TANLASH --}}
                                 <div class="mb-3">
                                     <label for="country_id" class="form-label">Davlat (Konferensiya) <span
                                             class="text-danger">*</span></label>
                                     <select class="form-select" id="country_id" name="country_id" required>
                                         <option value="">Tanlang...</option>
                                         @foreach($countries as $country)
-                                            <option value="{{ $country->id }}" {{ (old('country_id') == $country->id || request('conference_id') && \App\Models\Conference::find(request('conference_id'))->country_id == $country->id) ? 'selected' : '' }}>
+                                            @php
+                                                $preCountryId = $preselectedConference?->country_id;
+                                                $isSelected = old('country_id')
+                                                    ? old('country_id') == $country->id
+                                                    : ($preCountryId == $country->id);
+                                            @endphp
+                                            <option value="{{ $country->id }}" {{ $isSelected ? 'selected' : '' }}>
                                                 {{ $country->name }} ({{ $country->name_en }})
                                             </option>
                                         @endforeach
                                     </select>
+                                </div>
+
+                                {{-- OY KIRITISH - QOLDA (qo'lda kiritish, select emas) --}}
+                                <div class="mb-3">
+                                    <label for="month_year" class="form-label fw-bold">
+                                        <i class="bi bi-calendar-month me-1"></i>
+                                        Konferensiya oyi <span class="text-danger">*</span>
+                                    </label>
+                                    <input
+                                        type="month"
+                                        class="form-control @error('month_year') is-invalid @enderror"
+                                        id="month_year"
+                                        name="month_year"
+                                        value="{{ old('month_year', $preselectedConference?->month_year) }}"
+                                        required
+                                    >
+                                    @error('month_year')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                    <div class="form-text text-info">
+                                        <i class="bi bi-info-circle me-1"></i>
+                                        O'tgan yoki kelgusi oyni ham kiritish mumkin. Maqola shu oy konferensiyasiga biriktiriladi.
+                                    </div>
+                                </div>
+
+                                {{-- ANIQ SANA - QOLDA (12-mart, 20-aprel kabi) --}}
+                                <div class="mb-3">
+                                    <label for="conference_date" class="form-label fw-bold">
+                                        <i class="bi bi-calendar-check me-1"></i>
+                                        Konferensiya aniq sanasi <span class="text-danger">*</span>
+                                    </label>
+                                    <input
+                                        type="date"
+                                        class="form-control @error('conference_date') is-invalid @enderror"
+                                        id="conference_date"
+                                        name="conference_date"
+                                        value="{{ old('conference_date', $preselectedConference?->conference_date?->format('Y-m-d')) }}"
+                                        required
+                                    >
+                                    @error('conference_date')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                    <div class="form-text text-warning">
+                                        <i class="bi bi-calendar3 me-1"></i>
+                                        Masalan: <strong>12-mart</strong> yoki <strong>20-aprel</strong> kabi aniq sana. PDF da "Date: 12th March 2026" ko'rinishida chiqadi.
+                                    </div>
                                 </div>
 
                                 <div class="mb-3">
@@ -141,24 +176,6 @@
 
                         <div class="card bg-light">
                             <div class="card-body">
-                                <h6 class="card-title">Texnik ma'lumotlar</h6>
-
-                                <div class="mb-3">
-                                    <label for="start_page" class="form-label">Boshlanish sahifasi <span
-                                            class="text-danger">*</span></label>
-                                    <input type="number" class="form-control" id="start_page" name="start_page"
-                                        value="{{ old('start_page', 1) }}" min="1" required>
-                                </div>
-
-                                <div class="mb-3">
-                                    <label for="order_number" class="form-label">Tartib raqami <span
-                                            class="text-danger">*</span></label>
-                                    <input type="number" class="form-control" id="order_number" name="order_number"
-                                        value="{{ old('order_number', 1) }}" min="1" required>
-                                </div>
-
-                                <hr>
-
                                 <div class="form-check mb-3">
                                     <input class="form-check-input" type="checkbox" id="publish_now" name="publish_now"
                                         value="1" {{ old('publish_now') ? 'checked' : '' }}>

@@ -7,7 +7,7 @@
     <style>
         @page {
             /* Margins: Top, Right, Bottom, Left */
-            margin: 15mm 15mm 15mm 30mm;
+            margin: 15mm 15mm 10mm 30mm;
             size: A4 portrait;
         }
 
@@ -209,6 +209,7 @@
         .content p {
             margin-bottom: 4mm;
             text-indent: 10mm;
+            page-break-inside: avoid;
         }
 
         .content p:first-child {
@@ -269,7 +270,7 @@
         /* Footer */
         .footer {
             position: fixed;
-            bottom: -10mm;
+            bottom: -18mm;
             width: 100%;
             text-align: center;
             font-size: 9pt;

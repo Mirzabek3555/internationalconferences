@@ -55,7 +55,7 @@
             $qrImage = \SimpleSoftwareIO\QrCode\Facades\QrCode::format('svg')
                 ->size(150)
                 ->margin(0)
-                ->color($pRgb[0], $pRgb[1], $pRgb[2])
+                ->color(0, 0, 0)
                 ->generate($verifyUrl);
             $qrBase64 = 'data:image/svg+xml;base64,' . base64_encode($qrImage);
         } catch (\Exception $e) {

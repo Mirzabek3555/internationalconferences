@@ -18,6 +18,7 @@ class Country extends Model
         'code',
         'flag_url',
         'cover_image',
+        'schedule_order',
         'is_active',
     ];
 

@@ -89,6 +89,19 @@ class UserController extends Controller
                 ->with('error', 'Sertifikat topilmadi.');
         }
 
-        return Storage::disk('public')->download($certificate->pdf_path);
+        $extension = pathinfo($certificate->pdf_path, PATHINFO_EXTENSION);
+        if (!$extension) {
+            $extension = str_ends_with($certificate->pdf_path, '.zip') ? 'zip' : 'jpg';
+        }
+
+        $contentType = $extension === 'zip' ? 'application/zip' : ($extension === 'pdf' ? 'application/pdf' : 'image/jpeg');
+
+        return response()->file(
+            Storage::disk('public')->path($certificate->pdf_path),
+            [
+                'Content-Type'        => $contentType,
+                'Content-Disposition' => 'attachment; filename="certificate_' . $certificate->certificate_number . '.' . $extension . '"',
+            ]
+        );
     }
 }

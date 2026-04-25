@@ -12,8 +12,8 @@
             <!-- Navigation -->
             <nav class="journal-nav">
                 <a href="#current" class="journal-nav-link active">Current</a>
-                <a href="#archives" class="journal-nav-link">Archives</a>
-                <a href="#about" class="journal-nav-link">About</a>
+                <a href="{{ route('archive') }}" class="journal-nav-link">Archives</a>
+                <a href="#" class="journal-nav-link">About</a>
             </nav>
         </div>
     </section>

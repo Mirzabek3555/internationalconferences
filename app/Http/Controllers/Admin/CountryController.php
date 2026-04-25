@@ -14,7 +14,10 @@ class CountryController extends Controller
      */
     public function index()
     {
-        $countries = Country::withCount('conferences')->orderBy('name')->get();
+        $countries = Country::withCount('conferences')
+            ->orderByDesc('is_active')
+            ->orderBy('name')
+            ->get();
         return view('admin.countries.index', compact('countries'));
     }
 
@@ -39,6 +42,7 @@ class CountryController extends Controller
             'code' => 'required|string|size:3|unique:countries,code',
             'flag' => 'nullable|image|mimes:png,jpg,jpeg,svg|max:2048',
             'cover_image' => 'nullable|image|mimes:png,jpg,jpeg|max:5120',
+            'schedule_order' => 'nullable|integer',
             'is_active' => 'nullable',
         ]);
 
@@ -101,6 +105,7 @@ class CountryController extends Controller
             'code' => 'required|string|size:3|unique:countries,code,' . $country->id,
             'flag' => 'nullable|image|mimes:png,jpg,jpeg,svg|max:2048',
             'cover_image' => 'nullable|image|mimes:png,jpg,jpeg|max:5120',
+            'schedule_order' => 'nullable|integer',
             'is_active' => 'nullable',
         ]);
 

@@ -14,18 +14,21 @@ class PublicController extends Controller
      */
     public function home()
     {
-        // Har bir davlatdagi nashr qilingan maqolalar sonini hisoblash
+        // Har bir davlatdagi nashr qilingan maqolalar sonini hisoblash (Faqat active konferensiyalar uchun)
         $countries = Country::active()
             ->withCount([
                 'articles' => function ($query) {
-                    $query->where('articles.status', 'published');
+                    $query->where('articles.status', 'published')
+                          ->whereHas('conference', function($q) {
+                              $q->where('status', 'active');
+                          });
                 }
             ])
             ->orderBy('name')
             ->take(10)
             ->get();
 
-        // Statistika
+        // Statistika (Barcha vaqtlardagi nashr qilingan maqolalar, shu jumladan arxivdagi)
         $totalArticles = Article::published()->count();
 
         return view('public.home', compact('countries', 'totalArticles'));
@@ -39,7 +42,10 @@ class PublicController extends Controller
         $countries = Country::active()
             ->withCount([
                 'articles' => function ($query) {
-                    $query->where('articles.status', 'published');
+                    $query->where('articles.status', 'published')
+                          ->whereHas('conference', function($q) {
+                              $q->where('status', 'active');
+                          });
                 }
             ])
             ->orderBy('name')
@@ -53,9 +59,10 @@ class PublicController extends Controller
      */
     public function country(Country $country)
     {
-        // Shu davlatdagi barcha konferensiyalarning nashr qilingan maqolalari
+        // Shu davlatdagi barcha ACTIVE konferensiyalarning nashr qilingan maqolalari
         $articles = Article::whereHas('conference', function ($query) use ($country) {
-            $query->where('country_id', $country->id);
+            $query->where('country_id', $country->id)
+                  ->where('status', 'active');
         })
             ->published()
             ->with(['conference', 'author'])
@@ -92,5 +99,19 @@ class PublicController extends Controller
         $article->load(['conference.country', 'author', 'certificate']);
 
         return view('public.articles.show', compact('article'));
+    }
+
+    /**
+     * Arxiv - Yakunlangan konferensiyalar ro'yxati
+     */
+    public function archive()
+    {
+        $conferences = Conference::with('country')
+            ->where('status', 'completed')
+            ->orderByDesc('month_year')
+            ->orderByDesc('created_at')
+            ->paginate(20);
+
+        return view('public.archive.index', compact('conferences'));
     }
 }
